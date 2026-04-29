@@ -493,3 +493,21 @@ body {
     padding-left: 4px;
     border-left: 1px solid rgba(255, 255, 255, 0.18);
 }
+
+/* ----- Shrink oversized icons & labels inside the settings drawer ----- */
+.settings-drawer .v-icon {
+    font-size: 18px !important;
+    height: 18px;
+    width: 18px;
+}
+.settings-drawer .v-input__icon .v-icon,
+.settings-drawer .v-input__prepend-inner .v-icon {
+    font-size: 18px !important;
+}
+.settings-drawer .v-text-field input,
+.settings-drawer .v-label {
+    font-size: 13px !important;
+}
+.settings-drawer .v-btn .v-icon {
+    font-size: 16px !important;
+}
