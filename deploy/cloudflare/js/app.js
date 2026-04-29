@@ -21,6 +21,41 @@
         return url.join('/') + '/';
     }
 
+    // ---- RA/Dec/Az formatting helpers (hoisted; pure functions) ----
+    function padInt(num, padLen) {
+        var s = String(num);
+        while (s.length < padLen) s = '0' + s;
+        return s;
+    }
+    function formatRA(stel, a) {
+        var raf = stel.a2tf(a, 1);
+        return '<div class="radecVal">' + padInt(raf.hours, 2) +
+            '<span class="radecUnit">h</span>&nbsp;</div>' +
+            '<div class="radecVal">' + padInt(raf.minutes, 2) +
+            '<span class="radecUnit">m</span></div>' +
+            '<div class="radecVal">' + padInt(raf.seconds, 2) +
+            '.' + raf.fraction + '<span class="radecUnit">s</span></div>';
+    }
+    function formatDec(stel, a) {
+        var raf = stel.a2af(a, 1);
+        return '<div class="radecVal">' + raf.sign + padInt(raf.degrees, 2) +
+            '<span class="radecUnit">°</span></div><div class="radecVal">' +
+            padInt(raf.arcminutes, 2) +
+            '<span class="radecUnit">\'</span></div><div class="radecVal">' +
+            padInt(raf.arcseconds, 2) + '.' + raf.fraction +
+            '<span class="radecUnit">"</span></div>';
+    }
+    function formatAz(stel, a) {
+        var raf = stel.a2af(a, 1);
+        var deg = raf.degrees < 0 ? raf.degrees + 180 : raf.degrees;
+        return '<div class="radecVal">' + padInt(deg, 3) +
+            '<span class="radecUnit">°</span></div><div class="radecVal">' +
+            padInt(raf.arcminutes, 2) +
+            '<span class="radecUnit">\'</span></div><div class="radecVal">' +
+            padInt(raf.arcseconds, 2) + '.' + raf.fraction +
+            '<span class="radecUnit">"</span></div>';
+    }
+
     new Vue({
         vuetify: new Vuetify({ theme: { dark: true } }),
         el: '#app',
@@ -53,17 +88,16 @@
         },
         mounted: function () {
             // Restore previously chosen locale; otherwise auto-detect from browser.
-            try {
-                var saved = localStorage.getItem('stelweb.locale');
-                if (saved && this.messages[saved]) {
-                    this.locale = saved;
-                } else {
-                    var nav = (navigator.language || 'en').toLowerCase();
-                    if (nav.startsWith('zh')) this.locale = nav.indexOf('tw') >= 0 || nav.indexOf('hk') >= 0 ? 'zh-TW' : 'zh-CN';
-                    else if (nav.startsWith('ja')) this.locale = 'ja';
-                    else if (nav.startsWith('es')) this.locale = 'es';
-                }
-            } catch (e) { /* ignore */ }
+            var saved = null;
+            try { saved = localStorage.getItem('stelweb.locale'); } catch (e) { /* ignore */ }
+            if (saved && this.messages[saved]) {
+                this.locale = saved;
+            } else {
+                var nav = (navigator.language || 'en').toLowerCase();
+                if (nav.startsWith('zh')) this.locale = nav.indexOf('tw') >= 0 || nav.indexOf('hk') >= 0 ? 'zh-TW' : 'zh-CN';
+                else if (nav.startsWith('ja')) this.locale = 'ja';
+                else if (nav.startsWith('es')) this.locale = 'es';
+            }
             this.restoreLlmSettings();
 
             var that = this;
@@ -82,17 +116,36 @@
                     core.landscapes.addDataSource({ url: baseUrl + 'landscapes/guereins', key: 'guereins' });
                     core.milkyway.addDataSource({ url: baseUrl + 'surveys/milkyway' });
                     core.minor_planets.addDataSource({ url: baseUrl + 'mpcorb.dat', key: 'mpc_asteroids' });
-                    core.planets.addDataSource({ url: baseUrl + 'surveys/sso/moon', key: 'moon' });
-                    core.planets.addDataSource({ url: baseUrl + 'surveys/sso/sun', key: 'sun' });
-                    core.planets.addDataSource({ url: baseUrl + 'surveys/sso/moon', key: 'default' });
+                    // Per-body HiPS textures hosted on Stellarium-Web's
+                    // official CDN (DigitalOcean Spaces). The upstream
+                    // bucket only allows CORS for stellarium-web.org, so we
+                    // proxy through our /sso/* worker route — the browser
+                    // sees a same-origin URL and the worker handles the
+                    // upstream fetch + edge caching.
+                    var ssoCdn = getBaseUrl() + 'sso/';
+                    core.planets.addDataSource({ url: ssoCdn + 'moon/v1',     key: 'moon' });
+                    core.planets.addDataSource({ url: ssoCdn + 'sun/v1',      key: 'sun' });
+                    core.planets.addDataSource({ url: ssoCdn + 'mercury/v1',  key: 'mercury' });
+                    core.planets.addDataSource({ url: ssoCdn + 'venus/v1',    key: 'venus' });
+                    core.planets.addDataSource({ url: ssoCdn + 'mars/v1',     key: 'mars' });
+                    core.planets.addDataSource({ url: ssoCdn + 'jupiter/v1',  key: 'jupiter' });
+                    core.planets.addDataSource({ url: ssoCdn + 'saturn/v1',   key: 'saturn' });
+                    core.planets.addDataSource({ url: ssoCdn + 'uranus/v1',   key: 'uranus' });
+                    core.planets.addDataSource({ url: ssoCdn + 'neptune/v1',  key: 'neptune' });
+                    core.planets.addDataSource({ url: ssoCdn + 'io/v1',       key: 'io' });
+                    core.planets.addDataSource({ url: ssoCdn + 'europa/v1',   key: 'europa' });
+                    core.planets.addDataSource({ url: ssoCdn + 'ganymede/v1', key: 'ganymede' });
+                    core.planets.addDataSource({ url: ssoCdn + 'callisto/v1', key: 'callisto' });
+                    // Generic fallback (Solar System Scope CC-BY texture).
+                    core.planets.addDataSource({ url: ssoCdn + 'default/v1',  key: 'default' });
                     core.comets.addDataSource({ url: baseUrl + 'CometEls.txt', key: 'mpc_comets' });
                     core.satellites.addDataSource({ url: baseUrl + 'tle_satellite.jsonl.gz', key: 'jsonl/sat' });
 
                     stel.change(function (obj, attr) {
-                        if (attr !== 'hovered') {
-                            that.stel = Object.assign(Object.create(stel), {}, stel);
-                            if (attr === 'selection') that.onSelectionChanged();
-                        }
+                        if (attr === 'hovered') return;
+                        // Re-wrap to trigger Vue reactivity on nested mutations.
+                        that.stel = Object.assign(Object.create(stel), stel);
+                        if (attr === 'selection') that.onSelectionChanged();
                     });
 
                     stel.setFont('regular', 'static/fonts/Roboto-Regular.ttf', 1.38);
@@ -347,50 +400,18 @@
             },
             getInfos: function (obj) {
                 var stel = this.stel;
-                var formatInt = function (num, padLen) {
-                    var pad = new Array(1 + padLen).join('0');
-                    return (pad + num).slice(-pad.length);
-                };
-                var formatRA = function (a) {
-                    var raf = stel.a2tf(a, 1);
-                    return '<div class="radecVal">' + formatInt(raf.hours, 2) +
-                        '<span class="radecUnit">h</span>&nbsp;</div>' +
-                        '<div class="radecVal">' + formatInt(raf.minutes, 2) +
-                        '<span class="radecUnit">m</span></div>' +
-                        '<div class="radecVal">' + formatInt(raf.seconds, 2) +
-                        '.' + raf.fraction + '<span class="radecUnit">s</span></div>';
-                };
-                var formatDec = function (a) {
-                    var raf = stel.a2af(a, 1);
-                    return '<div class="radecVal">' + raf.sign + formatInt(raf.degrees, 2) +
-                        '<span class="radecUnit">°</span></div><div class="radecVal">' +
-                        formatInt(raf.arcminutes, 2) +
-                        '<span class="radecUnit">\'</span></div><div class="radecVal">' +
-                        formatInt(raf.arcseconds, 2) + '.' + raf.fraction +
-                        '<span class="radecUnit">"</span></div>';
-                };
-                var formatAz = function (a) {
-                    var raf = stel.a2af(a, 1);
-                    return '<div class="radecVal">' +
-                        formatInt(raf.degrees < 0 ? raf.degrees + 180 : raf.degrees, 3) +
-                        '<span class="radecUnit">°</span></div><div class="radecVal">' +
-                        formatInt(raf.arcminutes, 2) +
-                        '<span class="radecUnit">\'</span></div><div class="radecVal">' +
-                        formatInt(raf.arcseconds, 2) + '.' + raf.fraction +
-                        '<span class="radecUnit">"</span></div>';
-                };
-                var ret = [];
                 var obs = stel.core.observer;
                 var cirs = stel.convertFrame(obs, 'ICRF', 'CIRS', obj.getInfo('radec'));
                 var radec = stel.c2s(cirs);
-                var ra = stel.anp(radec[0]);
-                var dec = stel.anpm(radec[1]);
                 var observed = stel.convertFrame(obs, 'CIRS', 'OBSERVED', cirs);
                 var azalt = stel.c2s(observed);
+                var ra = stel.anp(radec[0]);
+                var dec = stel.anpm(radec[1]);
                 var az = stel.anp(azalt[0]);
                 var alt = stel.anp(azalt[1]);
                 var vmag = obj.getInfo('vmag');
                 var distance = obj.getInfo('distance');
+                var ret = [];
                 ret.push({ key: this.t('magnitude'), value: vmag === undefined ? this.t('unknown') : vmag.toFixed(2) });
                 if (distance !== undefined && distance > 0) {
                     var val;
@@ -402,8 +423,8 @@
                     }
                     ret.push({ key: this.t('distance'), value: val });
                 }
-                ret.push({ key: this.t('radec'), value: formatRA(ra) + '&nbsp;&nbsp;&nbsp;' + formatDec(dec) });
-                ret.push({ key: this.t('azalt'), value: formatAz(az) + '&nbsp;&nbsp;&nbsp;' + formatDec(alt) });
+                ret.push({ key: this.t('radec'), value: formatRA(stel, ra) + '&nbsp;&nbsp;&nbsp;' + formatDec(stel, dec) });
+                ret.push({ key: this.t('azalt'), value: formatAz(stel, az) + '&nbsp;&nbsp;&nbsp;' + formatDec(stel, alt) });
                 return ret;
             }
         }
