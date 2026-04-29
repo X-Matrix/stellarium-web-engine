@@ -247,8 +247,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/vue@2.7.16/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vuetify@2.6.10/dist/vuetify.js"></script>
-    <script src="https://unpkg.com/i18next/dist/umd/i18next.min.js"></script>
-    <script src="https://www.unpkg.com/i18next-xhr-backend/dist/umd/i18nextXHRBackend.min.js"></script>
     <script src="js/stellarium-web-engine.js"></script>
 
     <script type="text/x-template" id="stel-button-template">
@@ -276,15 +274,10 @@
             }
         });
 
-        i18next.use(i18nextXHRBackend).init({
-            lng: 'en',
-            ns: ['gui', 'skyculture'],
-            debug: false,
-            backend: {
-                loadPath: 'https://stellarium.sfo2.cdn.digitaloceanspaces.com/' +
-                    'i18n/v1/{{ns}}/{{lng}}.json'
-            }
-        });
+        // Engine translations: the upstream Stellarium i18n bucket is no longer
+        // publicly served (returns 403). The engine's built-in English defaults
+        // are sufficient, so we drop the i18next dependency entirely. translateFn
+        // is provided to StelWebEngine below as an identity function.
 
         function getBaseUrl() {
             let url = document.location.href.split('/');
@@ -477,7 +470,9 @@
                     wasmFile: 'js/stellarium-web-engine.wasm',
                     canvas: document.getElementById('stel-canvas'),
                     translateFn: function (domain, str) {
-                        return i18next.t(str, { ns: domain });
+                        // Engine asks for translations of UI / skyculture strings.
+                        // Return the original (English) string unchanged.
+                        return str;
                     },
                     onReady: function (stel) {
                         that.stel = stel;
