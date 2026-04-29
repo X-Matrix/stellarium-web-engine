@@ -34,6 +34,13 @@ cp -R apps/test-skydata/.           "$OUT/skydata/"
 cp deploy/cloudflare/index.html     "$OUT/index.html"
 cp deploy/cloudflare/_headers       "$OUT/_headers"
 
+# Cache-bust the (non content-hashed) app/css/locale assets so a fresh
+# index.html (cache: must-revalidate) always pulls the matching JS/CSS,
+# bypassing browser & edge caches that may have pinned older copies.
+BUILD_VERSION="$(date +%Y%m%d%H%M%S)"
+sed -i.bak "s/__BUILD_VERSION__/${BUILD_VERSION}/g" "$OUT/index.html"
+rm -f "$OUT/index.html.bak"
+
 # App css + js modules (split out from the original monolithic index.html).
 mkdir -p "$OUT/css"
 cp deploy/cloudflare/css/*.css      "$OUT/css/"

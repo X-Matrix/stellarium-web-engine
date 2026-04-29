@@ -11,5 +11,14 @@
 /static/*
   Cache-Control: public, max-age=86400
 
+# App scripts are not content-hashed, so revalidate every load to avoid
+# pinning users to stale builds via the year-long browser/CDN cache.
 /js/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Engine bundle is content-versioned by the build pipeline; safe to pin.
+/js/stellarium-web-engine.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/js/stellarium-web-engine.wasm
   Cache-Control: public, max-age=31536000, immutable
