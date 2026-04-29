@@ -17,3 +17,4 @@ hip_main.dat.gz
 
 deploy/cloudflare/public/
 .wrangler/
+.env
