@@ -196,6 +196,9 @@
                     this.lastSelectionKey = null;
                     return;
                 }
+                // Make sure adaptive theme polling is running while the card
+                // is visible.
+                this._startCardThemePoll();
                 try {
                     var cn = sel.culturalDesignations() || [];
                     this.culturalNames = cn.map(function (c) {
@@ -224,6 +227,74 @@
                 var pri = designations[0];
                 pri = pri.replace(/^(HD|HIP|SAO|HR|TYC|GAIA|GJ) /i, '');
                 return pri.trim();
+            },
+            // ---- Adaptive info-card theming ----
+            // Periodically sample the canvas pixels behind the info card,
+            // measure mean luminance, and toggle a class so the card stays
+            // readable on bright (daytime) and dark (night) skies alike.
+            _startCardThemePoll: function () {
+                if (this._cardThemeTimer) return;
+                var that = this;
+                var tick = function () {
+                    that._updateCardTheme();
+                };
+                tick();
+                this._cardThemeTimer = setInterval(tick, 600);
+            },
+            _stopCardThemePoll: function () {
+                if (this._cardThemeTimer) {
+                    clearInterval(this._cardThemeTimer);
+                    this._cardThemeTimer = null;
+                }
+            },
+            _updateCardTheme: function () {
+                var card = document.querySelector('.info-card');
+                var canvas = document.getElementById('stel-canvas');
+                if (!card || !canvas) return;
+                if (!card.offsetParent) {
+                    // Card hidden — stop polling until next selection.
+                    this._stopCardThemePoll();
+                    return;
+                }
+                try {
+                    var rect = card.getBoundingClientRect();
+                    var cRect = canvas.getBoundingClientRect();
+                    // Sample area = card bounds, clipped to canvas, scaled to
+                    // canvas backing-store coords.
+                    var sx = (rect.left - cRect.left) * (canvas.width / cRect.width);
+                    var sy = (rect.top - cRect.top) * (canvas.height / cRect.height);
+                    var sw = rect.width * (canvas.width / cRect.width);
+                    var sh = rect.height * (canvas.height / cRect.height);
+                    sx = Math.max(0, Math.min(canvas.width - 1, sx));
+                    sy = Math.max(0, Math.min(canvas.height - 1, sy));
+                    sw = Math.max(1, Math.min(canvas.width - sx, sw));
+                    sh = Math.max(1, Math.min(canvas.height - sy, sh));
+
+                    if (!this._sampleCanvas) {
+                        this._sampleCanvas = document.createElement('canvas');
+                        this._sampleCanvas.width = 16;
+                        this._sampleCanvas.height = 16;
+                    }
+                    var sc = this._sampleCanvas;
+                    var ctx = sc.getContext('2d');
+                    // drawImage from the WebGL canvas — the browser composites
+                    // the latest swap-chain frame into our 2D canvas.
+                    ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sc.width, sc.height);
+                    var data = ctx.getImageData(0, 0, sc.width, sc.height).data;
+                    var sum = 0, n = 0;
+                    for (var i = 0; i < data.length; i += 4) {
+                        // Rec. 601 luma
+                        sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                        n++;
+                    }
+                    var lum = n ? sum / n : 0; // 0..255
+                    // Hysteresis to prevent flicker around the threshold.
+                    var prev = card.classList.contains('info-card--bright');
+                    var bright = prev ? lum > 110 : lum > 130;
+                    card.classList.toggle('info-card--bright', bright);
+                } catch (e) {
+                    // Likely a cross-origin / readback issue — bail silently.
+                }
             },
             _loadDescription: function (title) {
                 var that = this;

@@ -69,6 +69,38 @@ body {
 .info-card a { color: #80cfff !important; }
 .info-card a:hover { color: #b3e5fc !important; }
 
+/* ----- Adaptive variant: when the sky behind the card is bright (daytime),
+   make the backdrop nearly solid black so text always has sufficient
+   contrast. JS toggles `.info-card--bright` based on canvas luminance. ----- */
+.info-card--bright {
+    background-color: rgba(8, 12, 18, 0.96) !important;
+    background-image: linear-gradient(180deg,
+            rgba(28, 36, 48, 0.4) 0%,
+            rgba(8, 12, 18, 0.0) 100%) !important;
+    border-color: rgba(255, 255, 255, 0.18) !important;
+    box-shadow:
+        0 12px 36px rgba(0, 0, 0, 0.7),
+        0 2px 10px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.info-card--bright h3,
+.info-card--bright .v-card__text .flex.xs8 {
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.info-card--bright .v-card__text .flex.xs4 {
+    color: #c8d0d8 !important;
+}
+
+.info-card--bright .desc-block,
+.info-card--bright .desc-block p {
+    color: #f0f0f0 !important;
+}
+
+.info-card--bright a { color: #4fc3f7 !important; }
+
 .info-card .v-card__text { padding-top: 8px; }
 
 .desc-block {
