@@ -34,5 +34,10 @@ cp -R apps/test-skydata/.           "$OUT/skydata/"
 cp deploy/cloudflare/index.html     "$OUT/index.html"
 cp deploy/cloudflare/_headers       "$OUT/_headers"
 
+# Advanced-mode worker (Wikipedia proxy at /api/wiki).
+if [ -f "$ROOT/deploy/cloudflare/_worker.js" ]; then
+  cp "$ROOT/deploy/cloudflare/_worker.js" "$OUT/_worker.js"
+fi
+
 echo "==> Done. Deploy with:"
 echo "    npx wrangler pages deploy $OUT --project-name stellarium-web"

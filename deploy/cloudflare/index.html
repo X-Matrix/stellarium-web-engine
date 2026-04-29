@@ -113,6 +113,21 @@
             color: #d7ccc8;
             font-style: italic;
         }
+
+        .stel-button-label {
+            font-size: 11px;
+            line-height: 1.2;
+            margin-top: 2px;
+            color: #e0e0e0;
+            text-align: center;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        .stel-button.semi-transparent .stel-button-label {
+            color: #888;
+        }
     </style>
 </head>
 
@@ -155,7 +170,7 @@
                     :obj="stel && stel.core.lines.equatorial" attr="visible"></stel-button>
                 <stel-button label="Nebulae" img="static/imgs/symbols/btn-nebulae.svg" :obj="stel && stel.core.dsos"
                     attr="visible"></stel-button>
-                <stel-button label="DSS" img="static/imgs/symbols/btn-nebulae.svg" :obj="stel && stel.core.dss"
+                <stel-button label="DSS Survey" img="static/imgs/symbols/btn-nebulae.svg" :obj="stel && stel.core.dss"
                     attr="visible"></stel-button>
                 <v-spacer></v-spacer>
             </v-footer>
@@ -211,10 +226,12 @@
 
     <script type="text/x-template" id="stel-button-template">
   <div class="stel-button shrink" :class="{'semi-transparent': !value}"
-       style="width:5rem; height:5rem;">
-    <a v-on:click='clicked'>
+       style="width:5rem; display:flex; flex-direction:column; align-items:center;"
+       :title="label">
+    <a v-on:click='clicked' style="width:3.6rem; height:3.6rem; display:block;">
       <img :src="img" class="w-100 h-100"/>
     </a>
+    <div class="stel-button-label">{{label}}</div>
   </div>
 </script>
 
@@ -403,9 +420,10 @@
                     this.selectionImage = '';
                     this.selectionLink = '';
                     this.selectionDescLoading = true;
-                    var url = 'https://en.wikipedia.org/api/rest_v1/page/summary/' +
-                        encodeURIComponent(title) + '?redirect=true';
-                    fetch(url, { headers: { 'Api-User-Agent': 'StelWebDemo/1.0' } })
+                    // Use a same-origin Cloudflare Pages Function as Wikipedia proxy
+                    // (avoids CORS issues and works in regions where wikipedia.org is blocked).
+                    var url = '/api/wiki?title=' + encodeURIComponent(title) + '&lang=en';
+                    fetch(url)
                         .then(function (r) { return r.ok ? r.json() : null; })
                         .then(function (j) {
                             if (that.lastSelectionKey === null) return;
