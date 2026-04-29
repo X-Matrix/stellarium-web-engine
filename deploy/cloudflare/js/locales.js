@@ -63,7 +63,13 @@ window.STEL_MESSAGES = {
         'geo.unsupported': 'Geolocation not supported — using default location.',
         'geo.success': 'Observer set to your location: {lat}°, {lng}°.',
         'geo.unavailable': 'Geolocation unavailable ({reason}) — using default observer location.',
-        'geo.denied': 'denied'
+        'geo.denied': 'denied',
+        'time.settings': 'Time',
+        'time.current': 'Current time (local)',
+        'time.now': 'Now',
+        'time.speed': 'Time flow speed',
+        'time.paused': 'Paused',
+        'time.realtime': 'Real time'
     },
     'zh-CN': {
         settings: '设置',
@@ -120,7 +126,13 @@ window.STEL_MESSAGES = {
         'geo.unsupported': '浏览器不支持定位，已使用默认位置。',
         'geo.success': '观测位置已设为：{lat}°，{lng}°。',
         'geo.unavailable': '无法获取定位（{reason}），已使用默认位置。',
-        'geo.denied': '已拒绝'
+        'geo.denied': '已拒绝',
+        'time.settings': '时间',
+        'time.current': '当前时间（本地）',
+        'time.now': '现在',
+        'time.speed': '时间流逝速度',
+        'time.paused': '已暂停',
+        'time.realtime': '实时'
     },
     'zh-TW': {
         settings: '設定',
@@ -177,7 +189,13 @@ window.STEL_MESSAGES = {
         'geo.unsupported': '瀏覽器不支援定位，已使用預設位置。',
         'geo.success': '觀測位置已設為：{lat}°，{lng}°。',
         'geo.unavailable': '無法取得定位（{reason}），已使用預設位置。',
-        'geo.denied': '已拒絕'
+        'geo.denied': '已拒絕',
+        'time.settings': '時間',
+        'time.current': '目前時間（本地）',
+        'time.now': '現在',
+        'time.speed': '時間流逝速度',
+        'time.paused': '已暫停',
+        'time.realtime': '即時'
     },
     'ja': {
         settings: '設定',
@@ -234,7 +252,13 @@ window.STEL_MESSAGES = {
         'geo.unsupported': '位置情報は利用できません。デフォルト位置を使用します。',
         'geo.success': '観測位置を設定しました: {lat}°, {lng}°。',
         'geo.unavailable': '位置を取得できません ({reason})。デフォルト位置を使用します。',
-        'geo.denied': '拒否されました'
+        'geo.denied': '拒否されました',
+        'time.settings': '時刻',
+        'time.current': '現在時刻 (ローカル)',
+        'time.now': '現在',
+        'time.speed': '時間の流れる速度',
+        'time.paused': '一時停止',
+        'time.realtime': 'リアルタイム'
     },
     'es': {
         settings: 'Ajustes',
@@ -291,6 +315,12 @@ window.STEL_MESSAGES = {
         'geo.unsupported': 'Geolocalización no compatible — usando ubicación predeterminada.',
         'geo.success': 'Ubicación del observador: {lat}°, {lng}°.',
         'geo.unavailable': 'Geolocalización no disponible ({reason}) — usando ubicación predeterminada.',
-        'geo.denied': 'denegada'
+        'geo.denied': 'denegada',
+        'time.settings': 'Hora',
+        'time.current': 'Hora actual (local)',
+        'time.now': 'Ahora',
+        'time.speed': 'Velocidad del tiempo',
+        'time.paused': 'Pausado',
+        'time.realtime': 'Tiempo real'
     }
 };

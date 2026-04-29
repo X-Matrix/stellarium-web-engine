@@ -17,16 +17,16 @@ export default {
             return handleWiki(url, env, ctx);
         }
 
-        // Same-origin proxy for Stellarium-Web's planet HiPS textures hosted
-        // on DigitalOcean Spaces. The upstream bucket only sends the CORS
-        // allow header for stellarium-web.org, so direct browser fetches
-        // from our deploy get HTTP 200 with no body. Proxying through this
-        // worker turns it into a same-origin resource — no CORS, no COEP
-        // problems, and we get Cloudflare edge caching for free.
+        // Same-origin proxy for upstream Stellarium-Web data hosted on
+        // DigitalOcean Spaces. The bucket only sends the CORS allow header
+        // for stellarium-web.org, so direct browser fetches from our
+        // deploy get a 200 with no body. Proxying here turns it into a
+        // same-origin resource — no CORS problems, plus Cloudflare edge
+        // caching for free.
         //
-        // Path: /sso/<body>/v1/<rest>  ->  surveys/sso/<body>/v1/<rest>
-        if (url.pathname.startsWith('/sso/')) {
-            return handleSsoProxy(url, request, ctx);
+        // Path: /cdn/<upstream path>  ->  https://stellarium.sfo2.cdn.digitaloceanspaces.com/<upstream path>
+        if (url.pathname.startsWith('/cdn/')) {
+            return handleCdnProxy(url, request, ctx);
         }
 
         // Anything else: serve the static asset.
@@ -34,28 +34,24 @@ export default {
     }
 };
 
-// HiPS texture pyramids on the upstream CDN. Tiles never change once
-// published (frozen at hips_release_date), so we can cache aggressively.
-const SSO_UPSTREAM = 'https://stellarium.sfo2.cdn.digitaloceanspaces.com/surveys';
-const SSO_CACHE_TTL = 30 * 24 * 3600;
+const CDN_UPSTREAM = 'https://stellarium.sfo2.cdn.digitaloceanspaces.com';
+const CDN_CACHE_TTL = 30 * 24 * 3600;
 
-async function handleSsoProxy(url, request, ctx) {
-    // Strip leading `/sso/` and append to the upstream `surveys/sso/` prefix.
-    // We deliberately keep the same path shape (<body>/v1/...) so URLs are
-    // 1:1 with the upstream and easy to debug.
-    const tail = url.pathname.slice('/sso/'.length);
+async function handleCdnProxy(url, request, ctx) {
+    const tail = url.pathname.slice('/cdn/'.length);
     if (!tail || tail.indexOf('..') !== -1) {
         return new Response('bad path', { status: 400 });
     }
-    const upstream = `${SSO_UPSTREAM}/sso/${tail}${url.search}`;
+    const upstream = `${CDN_UPSTREAM}/${tail}${url.search}`;
 
     try {
         const upstreamReq = new Request(upstream, {
             method: 'GET',
-            // Strip the browser Origin so the upstream doesn't reject us
-            // and returns the response unconditionally (it's a public asset).
+            // Strip the browser Origin so the upstream serves the public
+            // asset unconditionally (it's a public CDN; the conditional
+            // CORS allow-list only matters for browser CORS preflights).
             headers: { 'User-Agent': 'StelWebProxy/1.0' },
-            cf: { cacheTtl: SSO_CACHE_TTL, cacheEverything: true }
+            cf: { cacheTtl: CDN_CACHE_TTL, cacheEverything: true }
         });
         const r = await fetch(upstreamReq);
         // Build a fresh response so we control the headers (the upstream
@@ -65,10 +61,9 @@ async function handleSsoProxy(url, request, ctx) {
         if (ct) headers.set('Content-Type', ct);
         const cl = r.headers.get('content-length');
         if (cl) headers.set('Content-Length', cl);
-        headers.set('Cache-Control', `public, max-age=${SSO_CACHE_TTL}, immutable`);
-        // Keep the response same-origin so COEP=require-corp documents
-        // (we don't currently set this, but be future-proof) can still embed
-        // these textures into WebGL without a CORP roundtrip.
+        headers.set('Cache-Control', `public, max-age=${CDN_CACHE_TTL}, immutable`);
+        // Same-origin, so no need for Access-Control-* headers; future-proof
+        // against a COEP=require-corp document.
         headers.set('Cross-Origin-Resource-Policy', 'same-origin');
         return new Response(r.body, { status: r.status, headers });
     } catch (err) {

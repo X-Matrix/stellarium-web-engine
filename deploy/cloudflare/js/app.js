@@ -78,12 +78,24 @@
             searchErrorVisible: false,
             locale: 'en',
             locales: window.STEL_LOCALES,
-            messages: window.STEL_MESSAGES
+            messages: window.STEL_MESSAGES,
+            timeSpeed: 1,
+            timeInput: '',
+            timeDisplay: '',
+            _timeTickRaf: 0,
+            _timeUserEditing: false
         },
         computed: {
             currentLocale: function () {
                 var that = this;
                 return this.locales.find(function (l) { return l.code === that.locale; }) || this.locales[0];
+            }
+        },
+        watch: {
+            timeSpeed: function (v) {
+                var n = Number(v);
+                if (!isFinite(n)) return;
+                if (this.stel && this.stel.core) this.stel.core.time_speed = n;
             }
         },
         mounted: function () {
@@ -108,36 +120,49 @@
                 onReady: function (stel) {
                     that.stel = stel;
                     var baseUrl = getBaseUrl() + 'skydata/';
+                    // Same-origin proxy to upstream Stellarium-Web data CDN
+                    // (DigitalOcean Spaces). See _worker.js. Used for any
+                    // dataset whose deeper Norder tiles aren't shipped in
+                    // the local skydata/ stub (stars/dso/milkyway and the
+                    // per-body planet HiPS).
+                    var cdn = getBaseUrl() + 'cdn/';
+                    var minimalPack  = cdn + 'swe-data-packs/minimal/2020-09-01/minimal_2020-09-01_186e7ee2/';
+                    var basePack     = cdn + 'swe-data-packs/base/2020-09-01/base_2020-09-01_1aa210df/';
+                    var extendedPack = cdn + 'swe-data-packs/extended/2020-03-11/extended_2020-03-11_26aa5ab8/';
                     var core = stel.core;
 
-                    core.stars.addDataSource({ url: baseUrl + 'stars' });
+                    // Stars and DSOs are split into magnitude-banded packs
+                    // (minimal = vmag -1..7 / base = 7..8 / extended = 8..11.5).
+                    // All three must be registered or the engine only renders
+                    // a narrow slice of the sky. Note: minimal pack has no DSO.
+                    core.stars.addDataSource({ url: minimalPack  + 'stars', key: 'minimal' });
+                    core.stars.addDataSource({ url: basePack     + 'stars', key: 'base' });
+                    core.stars.addDataSource({ url: extendedPack + 'stars', key: 'extended' });
                     core.skycultures.addDataSource({ url: baseUrl + 'skycultures/western', key: 'western' });
-                    core.dsos.addDataSource({ url: baseUrl + 'dso' });
+                    core.dsos.addDataSource({ url: basePack     + 'dso' });
+                    core.dsos.addDataSource({ url: extendedPack + 'dso' });
                     core.landscapes.addDataSource({ url: baseUrl + 'landscapes/guereins', key: 'guereins' });
-                    core.milkyway.addDataSource({ url: baseUrl + 'surveys/milkyway' });
+                    core.milkyway.addDataSource({ url: cdn + 'surveys/milkyway/v1' });
                     core.minor_planets.addDataSource({ url: baseUrl + 'mpcorb.dat', key: 'mpc_asteroids' });
-                    // Per-body HiPS textures hosted on Stellarium-Web's
-                    // official CDN (DigitalOcean Spaces). The upstream
-                    // bucket only allows CORS for stellarium-web.org, so we
-                    // proxy through our /sso/* worker route — the browser
-                    // sees a same-origin URL and the worker handles the
-                    // upstream fetch + edge caching.
-                    var ssoCdn = getBaseUrl() + 'sso/';
-                    core.planets.addDataSource({ url: ssoCdn + 'moon/v1',     key: 'moon' });
-                    core.planets.addDataSource({ url: ssoCdn + 'sun/v1',      key: 'sun' });
-                    core.planets.addDataSource({ url: ssoCdn + 'mercury/v1',  key: 'mercury' });
-                    core.planets.addDataSource({ url: ssoCdn + 'venus/v1',    key: 'venus' });
-                    core.planets.addDataSource({ url: ssoCdn + 'mars/v1',     key: 'mars' });
-                    core.planets.addDataSource({ url: ssoCdn + 'jupiter/v1',  key: 'jupiter' });
-                    core.planets.addDataSource({ url: ssoCdn + 'saturn/v1',   key: 'saturn' });
-                    core.planets.addDataSource({ url: ssoCdn + 'uranus/v1',   key: 'uranus' });
-                    core.planets.addDataSource({ url: ssoCdn + 'neptune/v1',  key: 'neptune' });
-                    core.planets.addDataSource({ url: ssoCdn + 'io/v1',       key: 'io' });
-                    core.planets.addDataSource({ url: ssoCdn + 'europa/v1',   key: 'europa' });
-                    core.planets.addDataSource({ url: ssoCdn + 'ganymede/v1', key: 'ganymede' });
-                    core.planets.addDataSource({ url: ssoCdn + 'callisto/v1', key: 'callisto' });
+                    // Per-body HiPS textures from the upstream CDN, proxied
+                    // same-origin so the bucket's narrow CORS allow-list
+                    // (only stellarium-web.org) doesn't block us.
+                    var sso = cdn + 'surveys/sso/';
+                    core.planets.addDataSource({ url: sso + 'moon/v1',     key: 'moon' });
+                    core.planets.addDataSource({ url: sso + 'sun/v1',      key: 'sun' });
+                    core.planets.addDataSource({ url: sso + 'mercury/v1',  key: 'mercury' });
+                    core.planets.addDataSource({ url: sso + 'venus/v1',    key: 'venus' });
+                    core.planets.addDataSource({ url: sso + 'mars/v1',     key: 'mars' });
+                    core.planets.addDataSource({ url: sso + 'jupiter/v1',  key: 'jupiter' });
+                    core.planets.addDataSource({ url: sso + 'saturn/v1',   key: 'saturn' });
+                    core.planets.addDataSource({ url: sso + 'uranus/v1',   key: 'uranus' });
+                    core.planets.addDataSource({ url: sso + 'neptune/v1',  key: 'neptune' });
+                    core.planets.addDataSource({ url: sso + 'io/v1',       key: 'io' });
+                    core.planets.addDataSource({ url: sso + 'europa/v1',   key: 'europa' });
+                    core.planets.addDataSource({ url: sso + 'ganymede/v1', key: 'ganymede' });
+                    core.planets.addDataSource({ url: sso + 'callisto/v1', key: 'callisto' });
                     // Generic fallback (Solar System Scope CC-BY texture).
-                    core.planets.addDataSource({ url: ssoCdn + 'default/v1',  key: 'default' });
+                    core.planets.addDataSource({ url: sso + 'default/v1',  key: 'default' });
                     core.comets.addDataSource({ url: baseUrl + 'CometEls.txt', key: 'mpc_comets' });
                     core.satellites.addDataSource({ url: baseUrl + 'tle_satellite.jsonl.gz', key: 'jsonl/sat' });
 
@@ -151,6 +176,8 @@
                     stel.setFont('regular', 'static/fonts/Roboto-Regular.ttf', 1.38);
                     stel.setFont('bold', 'static/fonts/Roboto-Bold.ttf', 1.38);
 
+                    that.timeSpeed = core.time_speed;
+                    that.startTimeTick();
                     that.setupGeolocation();
                 }
             });
@@ -397,6 +424,79 @@
             getProgress: function () {
                 var bar = this.stel.core.progressbars[0];
                 return { title: bar.label, value: bar.value / bar.total * 100 };
+            },
+            // ---- Time controls ----
+            startTimeTick: function () {
+                if (this._timeTickRaf) return;
+                var that = this;
+                var loop = function () {
+                    that._timeTickRaf = requestAnimationFrame(loop);
+                    that.refreshTimeDisplay();
+                };
+                loop();
+            },
+            refreshTimeDisplay: function () {
+                if (!this.stel) return;
+                var mjd = this.stel.core.observer.utc;
+                var d = this.stel.MJD2date(mjd);
+                this.timeDisplay = this._formatHud(d);
+                if (!this._timeUserEditing) {
+                    this.timeInput = this._formatLocalInput(d);
+                }
+                var coreSpeed = this.stel.core.time_speed;
+                if (coreSpeed !== this.timeSpeed) this.timeSpeed = coreSpeed;
+            },
+            _pad: function (n, w) {
+                var s = String(Math.floor(n));
+                while (s.length < (w || 2)) s = '0' + s;
+                return s;
+            },
+            _formatHud: function (d) {
+                // UTC, e.g. 2026-04-29 12:34:56 UTC
+                return d.getUTCFullYear() + '-' + this._pad(d.getUTCMonth() + 1) +
+                    '-' + this._pad(d.getUTCDate()) + ' ' +
+                    this._pad(d.getUTCHours()) + ':' + this._pad(d.getUTCMinutes()) +
+                    ':' + this._pad(d.getUTCSeconds()) + ' UTC';
+            },
+            _formatLocalInput: function (d) {
+                // datetime-local format: YYYY-MM-DDTHH:mm:ss
+                return d.getFullYear() + '-' + this._pad(d.getMonth() + 1) +
+                    '-' + this._pad(d.getDate()) + 'T' +
+                    this._pad(d.getHours()) + ':' + this._pad(d.getMinutes()) +
+                    ':' + this._pad(d.getSeconds());
+            },
+            applyTimeInput: function () {
+                if (!this.stel || !this.timeInput) return;
+                var d = new Date(this.timeInput);
+                if (isNaN(d.getTime())) return;
+                this._timeUserEditing = true;
+                this.stel.core.observer.utc = this.stel.date2MJD(d.getTime());
+                var that = this;
+                setTimeout(function () { that._timeUserEditing = false; }, 50);
+            },
+            setTimeNow: function () {
+                if (!this.stel) return;
+                this.stel.core.observer.utc = this.stel.date2MJD(Date.now());
+            },
+            adjustTime: function (seconds) {
+                if (!this.stel) return;
+                this.stel.core.observer.utc += seconds / 86400;
+            },
+            setTimeSpeed: function (s) {
+                this.timeSpeed = s;
+            },
+            formatSpeed: function (s) {
+                var n = Number(s) || 0;
+                if (n === 0) return this.t('time.paused');
+                if (n === 1) return this.t('time.realtime');
+                var sign = n < 0 ? '-' : '';
+                var a = Math.abs(n);
+                var str;
+                if (a >= 1000) str = a.toFixed(0);
+                else if (a >= 10) str = a.toFixed(0);
+                else if (a >= 1) str = a.toFixed(1);
+                else str = a.toFixed(3);
+                return sign + str + '×';
             },
             getInfos: function (obj) {
                 var stel = this.stel;

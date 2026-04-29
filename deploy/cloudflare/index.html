@@ -32,6 +32,43 @@
 
                 <div class="settings-section">
                     <div class="settings-section-title">
+                        <v-icon x-small left color="#80cfff">mdi-clock-outline</v-icon>
+                        {{ t('time.settings') }}
+                    </div>
+                    <v-text-field v-model="timeInput" :label="t('time.current')" type="datetime-local" step="1" dense
+                        outlined hide-details prepend-inner-icon="mdi-calendar-clock" class="mb-2"
+                        @change="applyTimeInput"></v-text-field>
+                    <div class="time-row">
+                        <v-btn x-small depressed color="primary" @click="setTimeNow">
+                            <v-icon x-small left>mdi-target</v-icon>{{ t('time.now') }}
+                        </v-btn>
+                        <v-btn x-small depressed @click="adjustTime(-3600)">-1h</v-btn>
+                        <v-btn x-small depressed @click="adjustTime(-60)">-1m</v-btn>
+                        <v-btn x-small depressed @click="adjustTime(60)">+1m</v-btn>
+                        <v-btn x-small depressed @click="adjustTime(3600)">+1h</v-btn>
+                        <v-btn x-small depressed @click="adjustTime(86400)">+1d</v-btn>
+                    </div>
+                    <div class="settings-subtitle">{{ t('time.speed') }}: <span class="speed-val">{{
+                            formatSpeed(timeSpeed) }}</span></div>
+                    <div class="time-row">
+                        <v-btn x-small depressed :color="timeSpeed === 0 ? 'primary' : ''" @click="setTimeSpeed(0)">
+                            <v-icon x-small>mdi-pause</v-icon>
+                        </v-btn>
+                        <v-btn x-small depressed :color="timeSpeed === 1 ? 'primary' : ''"
+                            @click="setTimeSpeed(1)">1×</v-btn>
+                        <v-btn x-small depressed :color="timeSpeed === 60 ? 'primary' : ''"
+                            @click="setTimeSpeed(60)">60×</v-btn>
+                        <v-btn x-small depressed :color="timeSpeed === 3600 ? 'primary' : ''"
+                            @click="setTimeSpeed(3600)">3600×</v-btn>
+                        <v-btn x-small depressed :color="timeSpeed === 86400 ? 'primary' : ''"
+                            @click="setTimeSpeed(86400)">86400×</v-btn>
+                    </div>
+                    <v-slider v-model.number="timeSpeed" :min="-100000" :max="100000" :step="1" hide-details dense
+                        thumb-label class="mt-2"></v-slider>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-section-title">
                         <v-icon x-small left color="#80cfff">mdi-robot</v-icon>
                         {{ t('ai.settings') }}
                     </div>
@@ -188,6 +225,11 @@
             <!-- Main canvas + selection info card -->
             <div id="stel" class="w-100 h-100" style="position: relative;">
                 <canvas id="stel-canvas" style="position:absolute;" class="w-100 h-100"></canvas>
+                <div class="time-hud" v-if="stel" @click="drawer = true" :title="t('time.settings')">
+                    <v-icon x-small color="#80cfff">mdi-clock-outline</v-icon>
+                    <span class="time-hud-text">{{ timeDisplay }}</span>
+                    <span class="time-hud-speed" v-if="timeSpeed !== 1">{{ formatSpeed(timeSpeed) }}</span>
+                </div>
                 <v-card v-if="stel && stel.core.selection" style="position:absolute; top: 64px; width:430px;"
                     class="transparent info-card">
                     <v-card-title primary-title>

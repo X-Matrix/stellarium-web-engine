@@ -432,3 +432,64 @@ body {
 .settings-drawer .v-text-field--outlined.v-input--is-focused fieldset {
     border-color: #4fc3f7;
 }
+
+/* ----- Time controls ----- */
+.settings-drawer .settings-subtitle {
+    margin-top: 12px;
+    font-size: 11px;
+    color: #b8c2cc;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.settings-drawer .speed-val {
+    color: #80cfff;
+    font-family: monospace;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.settings-drawer .time-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+.settings-drawer .time-row .v-btn {
+    min-width: 40px !important;
+    padding: 0 8px !important;
+}
+
+.time-hud {
+    position: absolute;
+    top: 72px;
+    right: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: rgba(14, 18, 24, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    color: #f5f5f5;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    user-select: none;
+    z-index: 4;
+    transition: background 0.15s;
+}
+.time-hud:hover {
+    background: rgba(28, 36, 48, 0.92);
+    border-color: rgba(128, 207, 255, 0.4);
+}
+.time-hud-text {
+    letter-spacing: 0.02em;
+}
+.time-hud-speed {
+    color: #80cfff;
+    font-weight: 600;
+    padding-left: 4px;
+    border-left: 1px solid rgba(255, 255, 255, 0.18);
+}
