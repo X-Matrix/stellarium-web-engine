@@ -1,0 +1,19 @@
+# Emscripten build image for stellarium-web-engine.
+# Based on apps/web-frontend/Dockerfile.jsbuild but with Debian buster apt
+# sources redirected to archive.debian.org (buster is EOL).
+FROM emscripten/emsdk:1.39.17
+
+RUN set -eux; \
+    rm -f /etc/apt/sources.list.d/*.list; \
+    printf '%s\n' \
+      'deb http://archive.debian.org/debian buster main' \
+      'deb http://archive.debian.org/debian-security buster/updates main' \
+      > /etc/apt/sources.list; \
+    printf 'Acquire::Check-Valid-Until "false";\n' \
+      > /etc/apt/apt.conf.d/99no-check-valid-until; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      wget build-essential apt-transport-https scons ca-certificates; \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app

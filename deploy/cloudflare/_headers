@@ -1,0 +1,15 @@
+/*.wasm
+  Content-Type: application/wasm
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Opener-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+/skydata/*
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=86400
+
+/static/*
+  Cache-Control: public, max-age=86400
+
+/js/*
+  Cache-Control: public, max-age=31536000, immutable

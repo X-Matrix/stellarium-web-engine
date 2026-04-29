@@ -15,3 +15,5 @@ deltat.data
 deltat.preds
 hip_main.dat.gz
 
+deploy/cloudflare/public/
+.wrangler/
