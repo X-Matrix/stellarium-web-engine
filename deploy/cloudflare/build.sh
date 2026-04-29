@@ -34,6 +34,13 @@ cp -R apps/test-skydata/.           "$OUT/skydata/"
 cp deploy/cloudflare/index.html     "$OUT/index.html"
 cp deploy/cloudflare/_headers       "$OUT/_headers"
 
+# App css + js modules (split out from the original monolithic index.html).
+mkdir -p "$OUT/css"
+cp deploy/cloudflare/css/*.css      "$OUT/css/"
+cp deploy/cloudflare/js/locales.js  "$OUT/js/"
+cp deploy/cloudflare/js/ai-chat.js  "$OUT/js/"
+cp deploy/cloudflare/js/app.js      "$OUT/js/"
+
 # Advanced-mode worker (Wikipedia proxy at /api/wiki).
 if [ -f "$ROOT/deploy/cloudflare/_worker.js" ]; then
   cp "$ROOT/deploy/cloudflare/_worker.js" "$OUT/_worker.js"
