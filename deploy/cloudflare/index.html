@@ -24,35 +24,35 @@
     <div id="app">
         <v-app>
             <!-- Left settings drawer -->
-            <v-navigation-drawer absolute temporary clipped v-model="drawer" app width="320">
-                <v-list dense>
-                    <v-list-item>
-                        <v-list-item-action><v-icon>settings</v-icon></v-list-item-action>
-                        <v-list-item-content>
-                            <v-list-item-title>{{ t('settings') }}</v-list-item-title>
-                        </v-list-item-content>
-                    </v-list-item>
-                    <v-divider></v-divider>
-                    <v-subheader>{{ t('ai.settings') }}</v-subheader>
-                    <div style="padding: 0 16px 12px 16px;">
-                        <v-text-field v-model="llmBaseUrl" :label="t('ai.baseUrl')"
-                            placeholder="https://api.openai.com/v1" dense hide-details outlined
-                            class="mb-2"></v-text-field>
-                        <v-text-field v-model="llmApiKey" :label="t('ai.apiKey')" type="password" placeholder="sk-..."
-                            dense hide-details outlined class="mb-2"></v-text-field>
-                        <v-text-field v-model="llmModel" :label="t('ai.model')" placeholder="gpt-4o-mini" dense
-                            hide-details outlined class="mb-2"></v-text-field>
-                        <v-btn small block color="primary" @click="saveLlmSettings">{{ t('ai.save') }}</v-btn>
-                        <div v-if="llmSaved" style="font-size:11px; color:#4caf50; margin-top:4px;">
-                            {{ t('ai.saved') }}
-                        </div>
+            <v-navigation-drawer absolute temporary clipped v-model="drawer" app width="340" class="settings-drawer">
+                <div class="settings-header">
+                    <v-icon left small>mdi-cog</v-icon>
+                    <span>{{ t('settings') }}</span>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-section-title">
+                        <v-icon x-small left color="#80cfff">mdi-robot</v-icon>
+                        {{ t('ai.settings') }}
                     </div>
-                </v-list>
+                    <v-text-field v-model="llmBaseUrl" :label="t('ai.baseUrl')" placeholder="https://api.openai.com/v1"
+                        dense outlined hide-details prepend-inner-icon="mdi-link" class="mb-3"></v-text-field>
+                    <v-text-field v-model="llmApiKey" :label="t('ai.apiKey')" type="password" placeholder="sk-..." dense
+                        outlined hide-details prepend-inner-icon="mdi-key-variant" class="mb-3"></v-text-field>
+                    <v-text-field v-model="llmModel" :label="t('ai.model')" placeholder="gpt-4o-mini" dense outlined
+                        hide-details prepend-inner-icon="mdi-chip" class="mb-3"></v-text-field>
+                    <v-btn small block depressed color="primary" @click="saveLlmSettings">
+                        <v-icon left small>mdi-content-save</v-icon>{{ t('ai.save') }}
+                    </v-btn>
+                    <div v-if="llmSaved" class="settings-saved">
+                        <v-icon x-small color="#4caf50">mdi-check-circle</v-icon> {{ t('ai.saved') }}
+                    </div>
+                </div>
             </v-navigation-drawer>
 
             <!-- Right AI chat drawer -->
             <v-navigation-drawer v-model="aiOpen" app right temporary clipped width="380" class="ai-drawer">
-                <v-toolbar dense flat>
+                <v-toolbar dense flat class="ai-toolbar">
                     <v-icon left>mdi-robot</v-icon>
                     <v-toolbar-title style="font-size:15px;">{{ t('ai.title') }}</v-toolbar-title>
                     <v-spacer></v-spacer>
@@ -65,16 +65,45 @@
                 </v-toolbar>
 
                 <div class="ai-messages" ref="aiMessages">
-                    <div class="ai-empty" v-if="!aiMessages.length && !aiBusy">{{ t('ai.empty') }}</div>
+                    <!-- Welcome card (shown only on a fresh chat; never sent to the LLM) -->
+                    <div class="ai-welcome" v-if="!aiMessages.length && !aiBusy">
+                        <div class="ai-welcome-title">{{ t('ai.welcomeTitle') }}</div>
+                        <p class="ai-welcome-intro">{{ t('ai.welcomeIntro') }}</p>
+                        <div class="ai-welcome-chips">
+                            <button class="ai-chip" @click="runWelcomePrompt(t('ai.welcome.findSirius'))">{{
+                                t('ai.welcome.findSirius') }}</button>
+                            <button class="ai-chip" @click="runWelcomePrompt(t('ai.welcome.tellMercury'))">{{
+                                t('ai.welcome.tellMercury') }}</button>
+                            <button class="ai-chip" @click="runWelcomePrompt(t('ai.welcome.showAndromeda'))">{{
+                                t('ai.welcome.showAndromeda') }}</button>
+                            <button class="ai-chip" @click="runWelcomePrompt(t('ai.welcome.timeTonight'))">{{
+                                t('ai.welcome.timeTonight') }}</button>
+                            <button class="ai-chip" @click="runWelcomePrompt(t('ai.welcome.toggleAtm'))">{{
+                                t('ai.welcome.toggleAtm') }}</button>
+                        </div>
+                    </div>
                     <div v-for="(m, idx) in visibleMessages" :key="idx" class="ai-msg" :class="m.role">
-                        <div class="role">{{ m.roleLabel }}</div>
                         <!-- Assistant: rendered Markdown (sanitized) + streaming cursor -->
                         <template v-if="m.isAssistant">
+                            <div class="role">{{ m.roleLabel }}</div>
                             <div class="ai-md" v-html="m.html"></div>
                             <span v-if="m.streaming" class="ai-cursor"></span>
                         </template>
-                        <!-- User / tool / system: plain text -->
-                        <div v-else style="white-space:pre-wrap;">{{ m.content }}</div>
+                        <!-- Tool result: collapsed by default -->
+                        <template v-else-if="m.role === 'tool'">
+                            <details>
+                                <summary>
+                                    <v-icon x-small color="#80cfff">mdi-tools</v-icon>
+                                    {{ m.roleLabel }}
+                                </summary>
+                                <pre>{{ m.content }}</pre>
+                            </details>
+                        </template>
+                        <!-- User / system: plain text -->
+                        <template v-else>
+                            <div class="role">{{ m.roleLabel }}</div>
+                            <div style="white-space:pre-wrap;">{{ m.content }}</div>
+                        </template>
                     </div>
                     <div v-if="aiBusy && !visibleMessages.some(m => m.streaming)" class="ai-msg system">
                         {{ t('ai.thinking') }}
