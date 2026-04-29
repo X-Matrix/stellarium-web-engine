@@ -128,6 +128,73 @@
         .stel-button.semi-transparent .stel-button-label {
             color: #888;
         }
+
+        .ai-drawer .v-navigation-drawer__content {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .ai-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .ai-msg {
+            margin-bottom: 10px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .ai-msg.user {
+            background: #1565c0;
+            color: #fff;
+            align-self: flex-end;
+        }
+
+        .ai-msg.assistant {
+            background: #2a2a2a;
+            color: #eee;
+        }
+
+        .ai-msg.tool {
+            background: #263238;
+            color: #b3e5fc;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        .ai-msg.system {
+            background: transparent;
+            color: #888;
+            font-style: italic;
+            font-size: 11px;
+            padding: 2px 6px;
+        }
+
+        .ai-msg .role {
+            font-size: 10px;
+            text-transform: uppercase;
+            opacity: 0.7;
+            margin-bottom: 2px;
+        }
+
+        .ai-input-row {
+            padding: 8px;
+            border-top: 1px solid #333;
+        }
+
+        .ai-empty {
+            color: #888;
+            text-align: center;
+            margin-top: 24px;
+            font-size: 12px;
+        }
     </style>
 </head>
 
@@ -135,7 +202,7 @@
 
     <div id="app">
         <v-app>
-            <v-navigation-drawer absolute temporary clipped v-model="drawer" app>
+            <v-navigation-drawer absolute temporary clipped v-model="drawer" app width="320">
                 <v-list dense>
                     <v-list-item>
                         <v-list-item-action><v-icon>settings</v-icon></v-list-item-action>
@@ -143,7 +210,55 @@
                             <v-list-item-title>{{ t('settings') }}</v-list-item-title>
                         </v-list-item-content>
                     </v-list-item>
+                    <v-divider></v-divider>
+                    <v-subheader>{{ t('ai.settings') }}</v-subheader>
+                    <div style="padding: 0 16px 12px 16px;">
+                        <v-text-field v-model="llmBaseUrl" :label="t('ai.baseUrl')"
+                            :placeholder="'https://api.openai.com/v1'" dense hide-details outlined
+                            class="mb-2"></v-text-field>
+                        <v-text-field v-model="llmApiKey" :label="t('ai.apiKey')" type="password" placeholder="sk-..."
+                            dense hide-details outlined class="mb-2"></v-text-field>
+                        <v-text-field v-model="llmModel" :label="t('ai.model')" placeholder="gpt-4o-mini" dense
+                            hide-details outlined class="mb-2"></v-text-field>
+                        <v-btn small block color="primary" @click="saveLlmSettings">{{ t('ai.save') }}</v-btn>
+                        <div v-if="llmSaved" style="font-size:11px; color:#4caf50; margin-top:4px;">{{ t('ai.saved') }}
+                        </div>
+                    </div>
                 </v-list>
+            </v-navigation-drawer>
+
+            <v-navigation-drawer v-model="aiOpen" app right temporary clipped width="360" class="ai-drawer">
+                <v-toolbar dense flat>
+                    <v-icon left>mdi-robot</v-icon>
+                    <v-toolbar-title style="font-size:15px;">{{ t('ai.title') }}</v-toolbar-title>
+                    <v-spacer></v-spacer>
+                    <v-btn icon small @click="clearChat" :title="t('ai.clear')">
+                        <v-icon small>mdi-broom</v-icon>
+                    </v-btn>
+                    <v-btn icon small @click="aiOpen = false">
+                        <v-icon small>mdi-close</v-icon>
+                    </v-btn>
+                </v-toolbar>
+                <div class="ai-messages" ref="aiMessages">
+                    <div class="ai-empty" v-if="!aiMessages.length && !aiBusy">{{ t('ai.empty') }}</div>
+                    <div v-for="(m, idx) in visibleMessages" :key="idx" class="ai-msg" :class="m.role">
+                        <div class="role">{{ m.roleLabel }}</div>
+                        <div>{{ m.content }}</div>
+                    </div>
+                    <div v-if="aiBusy" class="ai-msg system">{{ t('ai.thinking') }}</div>
+                </div>
+                <div class="ai-input-row">
+                    <v-textarea v-model="aiInput" :placeholder="t('ai.placeholder')" rows="2" auto-grow hide-details
+                        dense outlined :disabled="aiBusy" @keydown.enter.exact.prevent="sendChat"></v-textarea>
+                    <div style="display:flex; gap:6px; margin-top:6px;">
+                        <v-btn small color="primary" @click="sendChat" :disabled="aiBusy || !aiInput.trim()">
+                            <v-icon left small>mdi-send</v-icon>{{ t('ai.send') }}
+                        </v-btn>
+                        <v-btn small text @click="insertSelectionContext" :disabled="!stel || !stel.core.selection">
+                            <v-icon left small>mdi-bullseye-arrow</v-icon>{{ t('ai.useSelection') }}
+                        </v-btn>
+                    </div>
+                </div>
             </v-navigation-drawer>
 
             <v-app-bar>
@@ -177,6 +292,9 @@
                         </v-list-item>
                     </v-list>
                 </v-menu>
+                <v-btn icon @click="aiOpen = !aiOpen" :title="t('ai.title')">
+                    <v-icon>mdi-robot</v-icon>
+                </v-btn>
             </v-app-bar>
 
             <v-footer app fixed class="transparent" style="height:auto;">
@@ -305,6 +423,14 @@
                 searchLoading: false,
                 searchError: '',
                 searchErrorVisible: false,
+                aiOpen: false,
+                aiBusy: false,
+                aiInput: '',
+                aiMessages: [],
+                llmBaseUrl: '',
+                llmApiKey: '',
+                llmModel: '',
+                llmSaved: false,
                 locale: 'en',
                 locales: [
                     { code: 'en', label: 'English' },
@@ -335,6 +461,27 @@
                         'search.placeholder': 'Search a star, planet, DSO…',
                         'search.notFound': 'Object “{q}” not found.',
                         'search.error': 'Search failed.',
+                        'ai.title': 'AI Assistant',
+                        'ai.settings': 'AI / LLM',
+                        'ai.baseUrl': 'API Base URL',
+                        'ai.apiKey': 'API Key',
+                        'ai.model': 'Model',
+                        'ai.save': 'Save',
+                        'ai.saved': 'Saved.',
+                        'ai.send': 'Send',
+                        'ai.clear': 'Clear chat',
+                        'ai.empty': 'Ask about a star, planet, or constellation — e.g. “Take me to Andromeda”.',
+                        'ai.placeholder': 'Ask anything astronomical, or say “go to Sirius”…',
+                        'ai.thinking': 'Thinking…',
+                        'ai.needSettings': 'Set the LLM Base URL, API key and model in Settings (left drawer) first.',
+                        'ai.error': 'AI request failed.',
+                        'ai.httpError': 'AI request failed (HTTP {status}).',
+                        'ai.useSelection': 'Use selection',
+                        'ai.aboutPrefix': 'Tell me about {name}.',
+                        'ai.role.user': 'You',
+                        'ai.role.assistant': 'Assistant',
+                        'ai.role.tool': 'tool',
+                        'ai.role.system': 'system',
                         'geo.unsupported': 'Geolocation not supported — using default location.',
                         'geo.success': 'Observer set to your location: {lat}°, {lng}°.',
                         'geo.unavailable': 'Geolocation unavailable ({reason}) — using default observer location.',
@@ -361,6 +508,27 @@
                         'search.placeholder': '搜索恒星、行星、深空天体…',
                         'search.notFound': '未找到天体“{q}”。',
                         'search.error': '搜索失败。',
+                        'ai.title': 'AI 助手',
+                        'ai.settings': 'AI / 大模型',
+                        'ai.baseUrl': 'API 地址',
+                        'ai.apiKey': 'API 密钥',
+                        'ai.model': '模型',
+                        'ai.save': '保存',
+                        'ai.saved': '已保存。',
+                        'ai.send': '发送',
+                        'ai.clear': '清空',
+                        'ai.empty': '问问某颗恒星、行星或星座——例如“带我看仙女座大星云”。',
+                        'ai.placeholder': '提问或说“跳到天狼星”…',
+                        'ai.thinking': '思考中…',
+                        'ai.needSettings': '请先在左侧设置中填入 LLM 地址、API Key 与模型。',
+                        'ai.error': 'AI 请求失败。',
+                        'ai.httpError': 'AI 请求失败 (HTTP {status})。',
+                        'ai.useSelection': '使用当前选中',
+                        'ai.aboutPrefix': '请介绍一下 {name}。',
+                        'ai.role.user': '你',
+                        'ai.role.assistant': '助手',
+                        'ai.role.tool': '工具',
+                        'ai.role.system': '系统',
                         'geo.unsupported': '浏览器不支持定位，已使用默认位置。',
                         'geo.success': '观测位置已设为：{lat}°，{lng}°。',
                         'geo.unavailable': '无法获取定位（{reason}），已使用默认位置。',
@@ -387,6 +555,27 @@
                         'search.placeholder': '搜索恆星、行星、深空天體…',
                         'search.notFound': '找不到天體「{q}」。',
                         'search.error': '搜索失敗。',
+                        'ai.title': 'AI 助手',
+                        'ai.settings': 'AI / 大模型',
+                        'ai.baseUrl': 'API 地址',
+                        'ai.apiKey': 'API 金鑰',
+                        'ai.model': '模型',
+                        'ai.save': '儲存',
+                        'ai.saved': '已儲存。',
+                        'ai.send': '傳送',
+                        'ai.clear': '清空',
+                        'ai.empty': '問問某顆恒星、行星或星座——例如「帶我看仙女座大星雲」。',
+                        'ai.placeholder': '提問或說「跳到天狼星」…',
+                        'ai.thinking': '思考中…',
+                        'ai.needSettings': '請先在左側設定中填入 LLM 地址、API Key 與模型。',
+                        'ai.error': 'AI 請求失敗。',
+                        'ai.httpError': 'AI 請求失敗 (HTTP {status})。',
+                        'ai.useSelection': '使用選中',
+                        'ai.aboutPrefix': '請介紹一下 {name}。',
+                        'ai.role.user': '你',
+                        'ai.role.assistant': '助手',
+                        'ai.role.tool': '工具',
+                        'ai.role.system': '系統',
                         'geo.unsupported': '瀏覽器不支援定位，已使用預設位置。',
                         'geo.success': '觀測位置已設為：{lat}°，{lng}°。',
                         'geo.unavailable': '無法取得定位（{reason}），已使用預設位置。',
@@ -413,6 +602,27 @@
                         'search.placeholder': '恒星・惑星・深宇宙天体を検索…',
                         'search.notFound': '天体「{q}」が見つかりません。',
                         'search.error': '検索に失敗しました。',
+                        'ai.title': 'AI アシスタント',
+                        'ai.settings': 'AI / LLM',
+                        'ai.baseUrl': 'API ベース URL',
+                        'ai.apiKey': 'API キー',
+                        'ai.model': 'モデル',
+                        'ai.save': '保存',
+                        'ai.saved': '保存しました。',
+                        'ai.send': '送信',
+                        'ai.clear': 'クリア',
+                        'ai.empty': '恒星や惑星、星座について質問してください。例：「アンドロメダ銀河に連れてって」',
+                        'ai.placeholder': '質問、または「シリウスにジャンプ」など…',
+                        'ai.thinking': '考えています…',
+                        'ai.needSettings': '左の設定で LLM の Base URL、API Key、モデルを設定してください。',
+                        'ai.error': 'AI リクエストに失敗しました。',
+                        'ai.httpError': 'AI リクエストに失敗 (HTTP {status})。',
+                        'ai.useSelection': '選択中を使用',
+                        'ai.aboutPrefix': '{name} について教えて。',
+                        'ai.role.user': 'You',
+                        'ai.role.assistant': 'AI',
+                        'ai.role.tool': 'ツール',
+                        'ai.role.system': 'システム',
                         'geo.unsupported': '位置情報は利用できません。デフォルト位置を使用します。',
                         'geo.success': '観測位置を設定しました: {lat}°, {lng}°。',
                         'geo.unavailable': '位置を取得できません ({reason})。デフォルト位置を使用します。',
@@ -439,6 +649,27 @@
                         'search.placeholder': 'Buscar estrella, planeta, DSO…',
                         'search.notFound': 'Objeto «{q}» no encontrado.',
                         'search.error': 'Búsqueda fallida.',
+                        'ai.title': 'Asistente IA',
+                        'ai.settings': 'IA / LLM',
+                        'ai.baseUrl': 'URL base de la API',
+                        'ai.apiKey': 'Clave de API',
+                        'ai.model': 'Modelo',
+                        'ai.save': 'Guardar',
+                        'ai.saved': 'Guardado.',
+                        'ai.send': 'Enviar',
+                        'ai.clear': 'Limpiar',
+                        'ai.empty': 'Pregunta por una estrella, planeta o constelación. Ej.: «Llévame a Andrómeda».',
+                        'ai.placeholder': 'Pregunta o di «ve a Sirius»…',
+                        'ai.thinking': 'Pensando…',
+                        'ai.needSettings': 'Configura primero la URL base, la clave API y el modelo en Ajustes.',
+                        'ai.error': 'Falló la solicitud a la IA.',
+                        'ai.httpError': 'Falló la solicitud (HTTP {status}).',
+                        'ai.useSelection': 'Usar selección',
+                        'ai.aboutPrefix': 'Háblame de {name}.',
+                        'ai.role.user': 'Tú',
+                        'ai.role.assistant': 'Asistente',
+                        'ai.role.tool': 'herramienta',
+                        'ai.role.system': 'sistema',
                         'geo.unsupported': 'Geolocalización no compatible — usando ubicación predeterminada.',
                         'geo.success': 'Ubicación del observador: {lat}°, {lng}°.',
                         'geo.unavailable': 'Geolocalización no disponible ({reason}) — usando ubicación predeterminada.',
@@ -450,6 +681,30 @@
                 currentLocale: function () {
                     var that = this;
                     return this.locales.find(function (l) { return l.code === that.locale; }) || this.locales[0];
+                },
+                visibleMessages: function () {
+                    var roleLabels = {
+                        user: this.t('ai.role.user'),
+                        assistant: this.t('ai.role.assistant'),
+                        tool: this.t('ai.role.tool'),
+                        system: this.t('ai.role.system')
+                    };
+                    return this.aiMessages
+                        .filter(function (m) { return m.role !== 'system' && (m.content || m.role === 'tool'); })
+                        .map(function (m) {
+                            var content = m.content;
+                            if (m.role === 'tool') {
+                                // Truncate long tool outputs.
+                                if (typeof content === 'string' && content.length > 240) {
+                                    content = content.slice(0, 240) + '…';
+                                }
+                            }
+                            return {
+                                role: m.role,
+                                roleLabel: roleLabels[m.role] || m.role,
+                                content: content
+                            };
+                        });
                 }
             },
             mounted: function () {
@@ -464,6 +719,12 @@
                         else if (nav.startsWith('ja')) this.locale = 'ja';
                         else if (nav.startsWith('es')) this.locale = 'es';
                     }
+                } catch (e) { /* ignore */ }
+                // Restore LLM settings.
+                try {
+                    this.llmBaseUrl = localStorage.getItem('stelweb.llm.baseUrl') || '';
+                    this.llmApiKey = localStorage.getItem('stelweb.llm.apiKey') || '';
+                    this.llmModel = localStorage.getItem('stelweb.llm.model') || '';
                 } catch (e) { /* ignore */ }
                 var that = this;
                 StelWebEngine({
@@ -569,6 +830,232 @@
                             that.searchLoading = false;
                         }
                     }, 0);
+                },
+                /* ===== AI assistant ===== */
+                saveLlmSettings: function () {
+                    try {
+                        localStorage.setItem('stelweb.llm.baseUrl', this.llmBaseUrl || '');
+                        localStorage.setItem('stelweb.llm.apiKey', this.llmApiKey || '');
+                        localStorage.setItem('stelweb.llm.model', this.llmModel || '');
+                    } catch (e) { /* ignore */ }
+                    var that = this;
+                    this.llmSaved = true;
+                    setTimeout(function () { that.llmSaved = false; }, 2000);
+                },
+                clearChat: function () {
+                    this.aiMessages = [];
+                },
+                insertSelectionContext: function () {
+                    var sel = this.stel && this.stel.core.selection;
+                    if (!sel) return;
+                    var name = (sel.designations()[0] || '').replace(/^NAME /, '');
+                    this.aiInput = (this.aiInput ? this.aiInput.trim() + ' ' : '') +
+                        this.t('ai.aboutPrefix', { name: name });
+                },
+                _aiSelectObject: function (name) {
+                    if (!name || !this.stel) return { ok: false, error: 'no name' };
+                    var stel = this.stel;
+                    var candidates = [
+                        name, 'NAME ' + name, name.toUpperCase(),
+                        'NAME ' + String(name).replace(/\b\w/g, function (c) { return c.toUpperCase(); })
+                    ];
+                    var obj = null;
+                    for (var i = 0; i < candidates.length; i++) {
+                        obj = stel.getObj(candidates[i]);
+                        if (obj) break;
+                    }
+                    if (!obj) return { ok: false, error: 'not found: ' + name };
+                    stel.core.selection = obj;
+                    try { stel.pointAndLock(obj, 0.8); } catch (e) { /* ignore */ }
+                    var designations = obj.designations() || [];
+                    var info = { ok: true, name: name, designations: designations };
+                    try {
+                        var v = obj.getInfo('vmag');
+                        if (v !== undefined) info.vmag = Number(v.toFixed(2));
+                    } catch (e) { /* ignore */ }
+                    return info;
+                },
+                _aiGetSelection: function () {
+                    var sel = this.stel && this.stel.core.selection;
+                    if (!sel) return { selected: false };
+                    var designations = sel.designations() || [];
+                    var out = { selected: true, designations: designations };
+                    try {
+                        var v = sel.getInfo('vmag');
+                        if (v !== undefined) out.vmag = Number(v.toFixed(2));
+                    } catch (e) { /* ignore */ }
+                    try {
+                        var d = sel.getInfo('distance');
+                        if (d !== undefined && d > 0) out.distanceAU = d;
+                    } catch (e) { /* ignore */ }
+                    return out;
+                },
+                _aiSetTime: function (iso) {
+                    if (!this.stel || !iso) return { ok: false, error: 'invalid' };
+                    var d = new Date(iso);
+                    if (isNaN(d.getTime())) return { ok: false, error: 'bad date' };
+                    var mjd = d.getTime() / 86400000 + 40587;
+                    try {
+                        this.stel.core.observer.utc = mjd;
+                        return { ok: true, utc: d.toISOString() };
+                    } catch (e) {
+                        return { ok: false, error: String(e) };
+                    }
+                },
+                _aiToolDefs: function () {
+                    return [
+                        {
+                            type: 'function',
+                            function: {
+                                name: 'select_object',
+                                description: 'Select and center the planetarium view on a celestial object (star, planet, constellation, deep-sky object, etc.) by its common name or catalogue id.',
+                                parameters: {
+                                    type: 'object',
+                                    properties: {
+                                        name: { type: 'string', description: 'e.g. "Sirius", "M31", "Orion", "NAME Vega"' }
+                                    },
+                                    required: ['name']
+                                }
+                            }
+                        },
+                        {
+                            type: 'function',
+                            function: {
+                                name: 'get_selection',
+                                description: 'Return information about the currently selected celestial object, if any.',
+                                parameters: { type: 'object', properties: {} }
+                            }
+                        },
+                        {
+                            type: 'function',
+                            function: {
+                                name: 'set_time',
+                                description: 'Set the planetarium clock to a given UTC ISO 8601 timestamp.',
+                                parameters: {
+                                    type: 'object',
+                                    properties: {
+                                        iso: { type: 'string', description: 'UTC ISO 8601 timestamp, e.g. "2025-08-12T22:00:00Z"' }
+                                    },
+                                    required: ['iso']
+                                }
+                            }
+                        }
+                    ];
+                },
+                _aiRunTool: function (name, argsJson) {
+                    var args = {};
+                    try { args = JSON.parse(argsJson || '{}'); } catch (e) { /* ignore */ }
+                    if (name === 'select_object') return this._aiSelectObject(args.name);
+                    if (name === 'get_selection') return this._aiGetSelection();
+                    if (name === 'set_time') return this._aiSetTime(args.iso);
+                    return { ok: false, error: 'unknown tool: ' + name };
+                },
+                sendChat: function () {
+                    var text = (this.aiInput || '').trim();
+                    if (!text || this.aiBusy) return;
+                    if (!this.llmBaseUrl || !this.llmApiKey || !this.llmModel) {
+                        this.aiMessages.push({ role: 'assistant', content: this.t('ai.needSettings') });
+                        return;
+                    }
+                    this.aiInput = '';
+                    this.aiMessages.push({ role: 'user', content: text });
+                    this._runChatLoop();
+                },
+                _systemPrompt: function () {
+                    var sel = this._aiGetSelection();
+                    var locName = (this.locales.find(function (l) {
+                        return l.code === this.locale;
+                    }.bind(this)) || {}).label || 'English';
+                    return [
+                        'You are an astronomy assistant embedded in a planetarium web app (Stellarium Web).',
+                        'You can call tools to control what the user sees: select_object centers the view on a celestial object;',
+                        'get_selection returns what the user has currently selected; set_time changes the simulation clock.',
+                        'When the user asks to "find", "show", "go to", "look at" or "locate" an object, call select_object.',
+                        'After a successful tool call, briefly confirm what was done in 1-2 sentences, then answer their question.',
+                        'For factual astronomy questions, answer concisely (3-6 sentences).',
+                        'Reply in the user\'s language: ' + locName + '.',
+                        'Current selection: ' + JSON.stringify(sel) + '.'
+                    ].join(' ');
+                },
+                _runChatLoop: async function () {
+                    this.aiBusy = true;
+                    try {
+                        var maxSteps = 4;
+                        for (var step = 0; step < maxSteps; step++) {
+                            var apiMessages = [{ role: 'system', content: this._systemPrompt() }]
+                                .concat(this.aiMessages.map(function (m) {
+                                    var msg = { role: m.role, content: m.content };
+                                    if (m.tool_calls) msg.tool_calls = m.tool_calls;
+                                    if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
+                                    if (m.name) msg.name = m.name;
+                                    return msg;
+                                }));
+                            var resp = await this._llmCall(apiMessages);
+                            if (!resp) return;
+                            var msg = resp.choices && resp.choices[0] && resp.choices[0].message;
+                            if (!msg) {
+                                this.aiMessages.push({ role: 'assistant', content: this.t('ai.error') });
+                                return;
+                            }
+                            // Persist assistant turn (with possible tool_calls).
+                            var stored = { role: 'assistant', content: msg.content || '' };
+                            if (msg.tool_calls && msg.tool_calls.length) stored.tool_calls = msg.tool_calls;
+                            this.aiMessages.push(stored);
+
+                            if (!msg.tool_calls || !msg.tool_calls.length) return; // done
+
+                            // Execute each tool call and append results.
+                            for (var i = 0; i < msg.tool_calls.length; i++) {
+                                var tc = msg.tool_calls[i];
+                                var fn = tc.function || {};
+                                var result;
+                                try { result = this._aiRunTool(fn.name, fn.arguments); }
+                                catch (e) { result = { ok: false, error: String(e) }; }
+                                this.aiMessages.push({
+                                    role: 'tool',
+                                    tool_call_id: tc.id,
+                                    name: fn.name,
+                                    content: JSON.stringify(result)
+                                });
+                            }
+                            // Loop: send tool results back to the model.
+                        }
+                    } catch (e) {
+                        this.aiMessages.push({ role: 'assistant', content: this.t('ai.error') + ' ' + String(e) });
+                    } finally {
+                        this.aiBusy = false;
+                        this.$nextTick(function () {
+                            var el = this.$refs.aiMessages;
+                            if (el) el.scrollTop = el.scrollHeight;
+                        }.bind(this));
+                    }
+                },
+                _llmCall: async function (messages) {
+                    var base = (this.llmBaseUrl || '').replace(/\/+$/, '');
+                    var url = base + '/chat/completions';
+                    var resp = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + this.llmApiKey
+                        },
+                        body: JSON.stringify({
+                            model: this.llmModel,
+                            messages: messages,
+                            tools: this._aiToolDefs(),
+                            temperature: 0.4
+                        })
+                    });
+                    if (!resp.ok) {
+                        var text = await resp.text().catch(function () { return ''; });
+                        this.aiMessages.push({
+                            role: 'assistant',
+                            content: this.t('ai.httpError', { status: resp.status }) +
+                                (text ? '\n' + text.slice(0, 240) : '')
+                        });
+                        return null;
+                    }
+                    return resp.json();
                 },
                 setupGeolocation: function () {
                     var that = this;
