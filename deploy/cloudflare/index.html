@@ -140,7 +140,7 @@
                     <v-list-item>
                         <v-list-item-action><v-icon>settings</v-icon></v-list-item-action>
                         <v-list-item-content>
-                            <v-list-item-title>Settings</v-list-item-title>
+                            <v-list-item-title>{{ t('settings') }}</v-list-item-title>
                         </v-list-item-content>
                     </v-list-item>
                 </v-list>
@@ -154,24 +154,37 @@
                     {{getProgress().title}}
                     <v-progress-circular :value="getProgress().value"></v-progress-circular>
                 </div>
+                <v-menu offset-y>
+                    <template v-slot:activator="{ on, attrs }">
+                        <v-btn text small v-bind="attrs" v-on="on" :title="t('language')">
+                            <v-icon left small>mdi-translate</v-icon>
+                            {{ currentLocale.label }}
+                        </v-btn>
+                    </template>
+                    <v-list dense dark>
+                        <v-list-item v-for="l in locales" :key="l.code" @click="setLocale(l.code)">
+                            <v-list-item-title>{{ l.label }}</v-list-item-title>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
             </v-app-bar>
 
             <v-footer app fixed class="transparent" style="height:auto;">
                 <v-spacer></v-spacer>
-                <stel-button label="Constellations" img="static/imgs/symbols/btn-cst-lines.svg"
+                <stel-button :label="t('btn.constellations')" img="static/imgs/symbols/btn-cst-lines.svg"
                     :obj="stel && stel.core.constellations" attr="lines_visible"></stel-button>
-                <stel-button label="Atmosphere" img="static/imgs/symbols/btn-atmosphere.svg"
+                <stel-button :label="t('btn.atmosphere')" img="static/imgs/symbols/btn-atmosphere.svg"
                     :obj="stel && stel.core.atmosphere" attr="visible"></stel-button>
-                <stel-button label="Landscape" img="static/imgs/symbols/btn-landscape.svg"
+                <stel-button :label="t('btn.landscape')" img="static/imgs/symbols/btn-landscape.svg"
                     :obj="stel && stel.core.landscapes" attr="visible"></stel-button>
-                <stel-button label="Azimuthal Grid" img="static/imgs/symbols/btn-azimuthal-grid.svg"
+                <stel-button :label="t('btn.azimuthalGrid')" img="static/imgs/symbols/btn-azimuthal-grid.svg"
                     :obj="stel && stel.core.lines.azimuthal" attr="visible"></stel-button>
-                <stel-button label="Equatorial Grid" img="static/imgs/symbols/btn-equatorial-grid.svg"
+                <stel-button :label="t('btn.equatorialGrid')" img="static/imgs/symbols/btn-equatorial-grid.svg"
                     :obj="stel && stel.core.lines.equatorial" attr="visible"></stel-button>
-                <stel-button label="Nebulae" img="static/imgs/symbols/btn-nebulae.svg" :obj="stel && stel.core.dsos"
-                    attr="visible"></stel-button>
-                <stel-button label="DSS Survey" img="static/imgs/symbols/btn-nebulae.svg" :obj="stel && stel.core.dss"
-                    attr="visible"></stel-button>
+                <stel-button :label="t('btn.nebulae')" img="static/imgs/symbols/btn-nebulae.svg"
+                    :obj="stel && stel.core.dsos" attr="visible"></stel-button>
+                <stel-button :label="t('btn.dss')" img="static/imgs/symbols/btn-nebulae.svg"
+                    :obj="stel && stel.core.dss" attr="visible"></stel-button>
                 <v-spacer></v-spacer>
             </v-footer>
 
@@ -202,10 +215,10 @@
                         </div>
                         <div class="desc-block" v-if="selectionDescription || selectionDescLoading">
                             <img v-if="selectionImage" class="desc-thumb" :src="selectionImage" />
-                            <p v-if="selectionDescLoading" style="color:#aaa">Loading description…</p>
+                            <p v-if="selectionDescLoading" style="color:#aaa">{{ t('loadingDescription') }}</p>
                             <p v-else style="white-space: pre-wrap;">{{selectionDescription}}</p>
                             <div class="desc-source" v-if="selectionLink">
-                                Source: <a :href="selectionLink" target="_blank" rel="noopener">Wikipedia</a>
+                                {{ t('source') }} <a :href="selectionLink" target="_blank" rel="noopener">Wikipedia</a>
                             </div>
                         </div>
                     </v-card-text>
@@ -213,7 +226,7 @@
             </div>
             <v-snackbar v-model="geoSnackVisible" :timeout="6000" bottom>
                 {{ geoSnack }}
-                <v-btn text color="primary" @click="geoSnackVisible = false">OK</v-btn>
+                <v-btn text color="primary" @click="geoSnackVisible = false">{{ t('ok') }}</v-btn>
             </v-snackbar>
         </v-app>
     </div>
@@ -280,9 +293,152 @@
                 selectionImage: '',
                 selectionLink: '',
                 descCache: Object.create(null),
-                lastSelectionKey: null
+                lastSelectionKey: null,
+                locale: 'en',
+                locales: [
+                    { code: 'en', label: 'English' },
+                    { code: 'zh-CN', label: '简体中文' },
+                    { code: 'zh-TW', label: '繁體中文' },
+                    { code: 'ja', label: '日本語' },
+                    { code: 'es', label: 'Español' }
+                ],
+                messages: {
+                    'en': {
+                        settings: 'Settings',
+                        language: 'Language',
+                        ok: 'OK',
+                        loadingDescription: 'Loading description…',
+                        source: 'Source:',
+                        unknown: 'Unknown',
+                        magnitude: 'Magnitude',
+                        distance: 'Distance',
+                        radec: 'Ra/Dec',
+                        azalt: 'Az/Alt',
+                        'btn.constellations': 'Constellations',
+                        'btn.atmosphere': 'Atmosphere',
+                        'btn.landscape': 'Landscape',
+                        'btn.azimuthalGrid': 'Azimuthal Grid',
+                        'btn.equatorialGrid': 'Equatorial Grid',
+                        'btn.nebulae': 'Nebulae',
+                        'btn.dss': 'DSS Survey',
+                        'geo.unsupported': 'Geolocation not supported — using default location.',
+                        'geo.success': 'Observer set to your location: {lat}°, {lng}°.',
+                        'geo.unavailable': 'Geolocation unavailable ({reason}) — using default observer location.',
+                        'geo.denied': 'denied'
+                    },
+                    'zh-CN': {
+                        settings: '设置',
+                        language: '语言',
+                        ok: '确定',
+                        loadingDescription: '正在加载介绍…',
+                        source: '来源：',
+                        unknown: '未知',
+                        magnitude: '星等',
+                        distance: '距离',
+                        radec: '赤经/赤纬',
+                        azalt: '方位角/高度角',
+                        'btn.constellations': '星座连线',
+                        'btn.atmosphere': '大气',
+                        'btn.landscape': '地面景观',
+                        'btn.azimuthalGrid': '地平坐标网',
+                        'btn.equatorialGrid': '赤道坐标网',
+                        'btn.nebulae': '星云/深空天体',
+                        'btn.dss': 'DSS 巡天',
+                        'geo.unsupported': '浏览器不支持定位，已使用默认位置。',
+                        'geo.success': '观测位置已设为：{lat}°，{lng}°。',
+                        'geo.unavailable': '无法获取定位（{reason}），已使用默认位置。',
+                        'geo.denied': '已拒绝'
+                    },
+                    'zh-TW': {
+                        settings: '設定',
+                        language: '語言',
+                        ok: '確定',
+                        loadingDescription: '正在載入介紹…',
+                        source: '來源：',
+                        unknown: '未知',
+                        magnitude: '星等',
+                        distance: '距離',
+                        radec: '赤經/赤緯',
+                        azalt: '方位角/高度角',
+                        'btn.constellations': '星座連線',
+                        'btn.atmosphere': '大氣',
+                        'btn.landscape': '地面景觀',
+                        'btn.azimuthalGrid': '地平座標網',
+                        'btn.equatorialGrid': '赤道座標網',
+                        'btn.nebulae': '星雲/深空天體',
+                        'btn.dss': 'DSS 巡天',
+                        'geo.unsupported': '瀏覽器不支援定位，已使用預設位置。',
+                        'geo.success': '觀測位置已設為：{lat}°，{lng}°。',
+                        'geo.unavailable': '無法取得定位（{reason}），已使用預設位置。',
+                        'geo.denied': '已拒絕'
+                    },
+                    'ja': {
+                        settings: '設定',
+                        language: '言語',
+                        ok: 'OK',
+                        loadingDescription: '説明を読み込み中…',
+                        source: '出典:',
+                        unknown: '不明',
+                        magnitude: '等級',
+                        distance: '距離',
+                        radec: '赤経/赤緯',
+                        azalt: '方位/高度',
+                        'btn.constellations': '星座線',
+                        'btn.atmosphere': '大気',
+                        'btn.landscape': '風景',
+                        'btn.azimuthalGrid': '地平座標グリッド',
+                        'btn.equatorialGrid': '赤道座標グリッド',
+                        'btn.nebulae': '星雲/深宇宙天体',
+                        'btn.dss': 'DSS サーベイ',
+                        'geo.unsupported': '位置情報は利用できません。デフォルト位置を使用します。',
+                        'geo.success': '観測位置を設定しました: {lat}°, {lng}°。',
+                        'geo.unavailable': '位置を取得できません ({reason})。デフォルト位置を使用します。',
+                        'geo.denied': '拒否されました'
+                    },
+                    'es': {
+                        settings: 'Ajustes',
+                        language: 'Idioma',
+                        ok: 'OK',
+                        loadingDescription: 'Cargando descripción…',
+                        source: 'Fuente:',
+                        unknown: 'Desconocido',
+                        magnitude: 'Magnitud',
+                        distance: 'Distancia',
+                        radec: 'AR/Dec',
+                        azalt: 'Az/Alt',
+                        'btn.constellations': 'Constelaciones',
+                        'btn.atmosphere': 'Atmósfera',
+                        'btn.landscape': 'Paisaje',
+                        'btn.azimuthalGrid': 'Cuadrícula azimutal',
+                        'btn.equatorialGrid': 'Cuadrícula ecuatorial',
+                        'btn.nebulae': 'Nebulosas',
+                        'btn.dss': 'Sondeo DSS',
+                        'geo.unsupported': 'Geolocalización no compatible — usando ubicación predeterminada.',
+                        'geo.success': 'Ubicación del observador: {lat}°, {lng}°.',
+                        'geo.unavailable': 'Geolocalización no disponible ({reason}) — usando ubicación predeterminada.',
+                        'geo.denied': 'denegada'
+                    }
+                }
+            },
+            computed: {
+                currentLocale: function () {
+                    var that = this;
+                    return this.locales.find(function (l) { return l.code === that.locale; }) || this.locales[0];
+                }
             },
             mounted: function () {
+                // Restore previously chosen locale; otherwise auto-detect from browser.
+                try {
+                    var saved = localStorage.getItem('stelweb.locale');
+                    if (saved && this.messages[saved]) {
+                        this.locale = saved;
+                    } else {
+                        var nav = (navigator.language || 'en').toLowerCase();
+                        if (nav.startsWith('zh')) this.locale = nav.indexOf('tw') >= 0 || nav.indexOf('hk') >= 0 ? 'zh-TW' : 'zh-CN';
+                        else if (nav.startsWith('ja')) this.locale = 'ja';
+                        else if (nav.startsWith('es')) this.locale = 'es';
+                    }
+                } catch (e) { /* ignore */ }
                 var that = this;
                 StelWebEngine({
                     wasmFile: 'js/stellarium-web-engine.wasm',
@@ -325,10 +481,34 @@
                 });
             },
             methods: {
+                t: function (key, vars) {
+                    var dict = this.messages[this.locale] || this.messages.en;
+                    var s = dict[key];
+                    if (s === undefined) s = (this.messages.en && this.messages.en[key]) || key;
+                    if (vars) {
+                        s = s.replace(/\{(\w+)\}/g, function (_, k) {
+                            return vars[k] !== undefined ? vars[k] : '{' + k + '}';
+                        });
+                    }
+                    return s;
+                },
+                setLocale: function (code) {
+                    if (!this.messages[code]) return;
+                    this.locale = code;
+                    try { localStorage.setItem('stelweb.locale', code); } catch (e) { /* ignore */ }
+                    // Refresh the description in the new language.
+                    this.lastSelectionKey = null;
+                    this.onSelectionChanged();
+                },
+                wikiLang: function () {
+                    // Map UI locale to a Wikipedia subdomain supported by /api/wiki.
+                    var map = { 'en': 'en', 'zh-CN': 'zh', 'zh-TW': 'zh', 'ja': 'ja', 'es': 'es' };
+                    return map[this.locale] || 'en';
+                },
                 setupGeolocation: function () {
                     var that = this;
                     if (!navigator.geolocation) {
-                        that.geoSnack = 'Geolocation not supported — using default location.';
+                        that.geoSnack = that.t('geo.unsupported');
                         that.geoSnackVisible = true;
                         return;
                     }
@@ -341,14 +521,12 @@
                             obs.latitude = lat * Math.PI / 180;
                             obs.longitude = lng * Math.PI / 180;
                             if (alt) obs.elevation = alt;
-                            that.geoSnack = 'Observer set to your location: ' +
-                                lat.toFixed(3) + '°, ' + lng.toFixed(3) + '°.';
+                            that.geoSnack = that.t('geo.success', { lat: lat.toFixed(3), lng: lng.toFixed(3) });
                             that.geoSnackVisible = true;
                         },
                         function (err) {
-                            that.geoSnack = 'Geolocation unavailable (' +
-                                (err && err.message ? err.message : 'denied') +
-                                ') — using default observer location.';
+                            var reason = (err && err.message) ? err.message : that.t('geo.denied');
+                            that.geoSnack = that.t('geo.unavailable', { reason: reason });
                             that.geoSnackVisible = true;
                         },
                         { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
@@ -408,7 +586,7 @@
                         this.selectionLink = '';
                         return;
                     }
-                    var cached = this.descCache[title];
+                    var cached = this.descCache[title + '|' + this.wikiLang()];
                     if (cached) {
                         this.selectionDescription = cached.extract;
                         this.selectionImage = cached.thumbnail;
@@ -422,7 +600,8 @@
                     this.selectionDescLoading = true;
                     // Use a same-origin Cloudflare Pages Function as Wikipedia proxy
                     // (avoids CORS issues and works in regions where wikipedia.org is blocked).
-                    var url = '/api/wiki?title=' + encodeURIComponent(title) + '&lang=en';
+                    var url = '/api/wiki?title=' + encodeURIComponent(title) + '&lang=' + this.wikiLang();
+                    var cacheKey = title + '|' + this.wikiLang();
                     fetch(url)
                         .then(function (r) { return r.ok ? r.json() : null; })
                         .then(function (j) {
@@ -432,7 +611,7 @@
                                 thumbnail: (j && j.thumbnail && j.thumbnail.source) ? j.thumbnail.source : '',
                                 link: (j && j.content_urls && j.content_urls.desktop && j.content_urls.desktop.page) ? j.content_urls.desktop.page : ''
                             };
-                            that.descCache[title] = entry;
+                            that.descCache[cacheKey] = entry;
                             that.selectionDescription = entry.extract;
                             that.selectionImage = entry.thumbnail;
                             that.selectionLink = entry.link;
@@ -497,7 +676,7 @@
                     var alt = stel.anp(azalt[1]);
                     var vmag = obj.getInfo('vmag');
                     var distance = obj.getInfo('distance');
-                    ret.push({ key: 'Magnitude', value: vmag === undefined ? 'Unknown' : vmag.toFixed(2) });
+                    ret.push({ key: this.t('magnitude'), value: vmag === undefined ? this.t('unknown') : vmag.toFixed(2) });
                     if (distance !== undefined && distance > 0) {
                         // distance is in AU; > 1e5 AU means it's a star/DSO -> show in light-years.
                         var val;
@@ -507,10 +686,10 @@
                         } else {
                             val = distance.toFixed(distance < 1 ? 4 : 3) + ' AU';
                         }
-                        ret.push({ key: 'Distance', value: val });
+                        ret.push({ key: this.t('distance'), value: val });
                     }
-                    ret.push({ key: 'Ra/Dec', value: formatRA(ra) + '&nbsp;&nbsp;&nbsp;' + formatDec(dec) });
-                    ret.push({ key: 'Az/Alt', value: formatAz(az) + '&nbsp;&nbsp;&nbsp;' + formatDec(alt) });
+                    ret.push({ key: this.t('radec'), value: formatRA(ra) + '&nbsp;&nbsp;&nbsp;' + formatDec(dec) });
+                    ret.push({ key: this.t('azalt'), value: formatAz(az) + '&nbsp;&nbsp;&nbsp;' + formatDec(alt) });
                     return ret;
                 }
             }
