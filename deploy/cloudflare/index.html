@@ -150,6 +150,16 @@
                 <v-app-bar-nav-icon @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
                 <v-toolbar-title>Stellarium<sup>Web</sup></v-toolbar-title>
                 <v-spacer></v-spacer>
+                <v-text-field v-model="searchQuery" :placeholder="t('search.placeholder')"
+                    prepend-inner-icon="mdi-magnify" hide-details dense solo-inverted dark flat
+                    style="max-width:260px; margin-right:8px;" @keyup.enter="doSearch" @click:prepend-inner="doSearch"
+                    :loading="searchLoading">
+                    <template v-slot:append>
+                        <v-btn icon x-small v-if="searchQuery" @click="searchQuery=''; searchError=''">
+                            <v-icon small>mdi-close</v-icon>
+                        </v-btn>
+                    </template>
+                </v-text-field>
                 <div v-if="stel && stel.core.progressbars.length">
                     {{getProgress().title}}
                     <v-progress-circular :value="getProgress().value"></v-progress-circular>
@@ -228,6 +238,10 @@
                 {{ geoSnack }}
                 <v-btn text color="primary" @click="geoSnackVisible = false">{{ t('ok') }}</v-btn>
             </v-snackbar>
+            <v-snackbar v-model="searchErrorVisible" :timeout="4000" top color="error">
+                {{ searchError }}
+                <v-btn text color="white" @click="searchErrorVisible = false">{{ t('ok') }}</v-btn>
+            </v-snackbar>
         </v-app>
     </div>
 
@@ -294,6 +308,10 @@
                 selectionLink: '',
                 descCache: Object.create(null),
                 lastSelectionKey: null,
+                searchQuery: '',
+                searchLoading: false,
+                searchError: '',
+                searchErrorVisible: false,
                 locale: 'en',
                 locales: [
                     { code: 'en', label: 'English' },
@@ -321,6 +339,9 @@
                         'btn.equatorialGrid': 'Equatorial Grid',
                         'btn.nebulae': 'Nebulae',
                         'btn.dss': 'DSS Survey',
+                        'search.placeholder': 'Search a star, planet, DSO…',
+                        'search.notFound': 'Object “{q}” not found.',
+                        'search.error': 'Search failed.',
                         'geo.unsupported': 'Geolocation not supported — using default location.',
                         'geo.success': 'Observer set to your location: {lat}°, {lng}°.',
                         'geo.unavailable': 'Geolocation unavailable ({reason}) — using default observer location.',
@@ -344,6 +365,9 @@
                         'btn.equatorialGrid': '赤道坐标网',
                         'btn.nebulae': '星云/深空天体',
                         'btn.dss': 'DSS 巡天',
+                        'search.placeholder': '搜索恒星、行星、深空天体…',
+                        'search.notFound': '未找到天体“{q}”。',
+                        'search.error': '搜索失败。',
                         'geo.unsupported': '浏览器不支持定位，已使用默认位置。',
                         'geo.success': '观测位置已设为：{lat}°，{lng}°。',
                         'geo.unavailable': '无法获取定位（{reason}），已使用默认位置。',
@@ -367,6 +391,9 @@
                         'btn.equatorialGrid': '赤道座標網',
                         'btn.nebulae': '星雲/深空天體',
                         'btn.dss': 'DSS 巡天',
+                        'search.placeholder': '搜索恆星、行星、深空天體…',
+                        'search.notFound': '找不到天體「{q}」。',
+                        'search.error': '搜索失敗。',
                         'geo.unsupported': '瀏覽器不支援定位，已使用預設位置。',
                         'geo.success': '觀測位置已設為：{lat}°，{lng}°。',
                         'geo.unavailable': '無法取得定位（{reason}），已使用預設位置。',
@@ -390,6 +417,9 @@
                         'btn.equatorialGrid': '赤道座標グリッド',
                         'btn.nebulae': '星雲/深宇宙天体',
                         'btn.dss': 'DSS サーベイ',
+                        'search.placeholder': '恒星・惑星・深宇宙天体を検索…',
+                        'search.notFound': '天体「{q}」が見つかりません。',
+                        'search.error': '検索に失敗しました。',
                         'geo.unsupported': '位置情報は利用できません。デフォルト位置を使用します。',
                         'geo.success': '観測位置を設定しました: {lat}°, {lng}°。',
                         'geo.unavailable': '位置を取得できません ({reason})。デフォルト位置を使用します。',
@@ -413,6 +443,9 @@
                         'btn.equatorialGrid': 'Cuadrícula ecuatorial',
                         'btn.nebulae': 'Nebulosas',
                         'btn.dss': 'Sondeo DSS',
+                        'search.placeholder': 'Buscar estrella, planeta, DSO…',
+                        'search.notFound': 'Objeto «{q}» no encontrado.',
+                        'search.error': 'Búsqueda fallida.',
                         'geo.unsupported': 'Geolocalización no compatible — usando ubicación predeterminada.',
                         'geo.success': 'Ubicación del observador: {lat}°, {lng}°.',
                         'geo.unavailable': 'Geolocalización no disponible ({reason}) — usando ubicación predeterminada.',
@@ -504,6 +537,43 @@
                     // Map UI locale to a Wikipedia subdomain supported by /api/wiki.
                     var map = { 'en': 'en', 'zh-CN': 'zh', 'zh-TW': 'zh', 'ja': 'ja', 'es': 'es' };
                     return map[this.locale] || 'en';
+                },
+                doSearch: function () {
+                    var q = (this.searchQuery || '').trim();
+                    if (!q || !this.stel) return;
+                    this.searchLoading = true;
+                    this.searchError = '';
+                    var that = this;
+                    // The engine lookup is synchronous, but defer to the next tick so
+                    // the loading spinner gets a chance to render for slow lookups.
+                    setTimeout(function () {
+                        try {
+                            var stel = that.stel;
+                            var candidates = [
+                                q,
+                                'NAME ' + q,
+                                q.toUpperCase(),
+                                'NAME ' + q.replace(/\b\w/g, function (c) { return c.toUpperCase(); })
+                            ];
+                            var obj = null;
+                            for (var i = 0; i < candidates.length; i++) {
+                                obj = stel.getObj(candidates[i]);
+                                if (obj) break;
+                            }
+                            if (!obj) {
+                                that.searchError = that.t('search.notFound', { q: q });
+                                that.searchErrorVisible = true;
+                                return;
+                            }
+                            stel.core.selection = obj;
+                            try { stel.pointAndLock(obj, 0.5); } catch (e) { /* ignore */ }
+                        } catch (e) {
+                            that.searchError = that.t('search.error');
+                            that.searchErrorVisible = true;
+                        } finally {
+                            that.searchLoading = false;
+                        }
+                    }, 0);
                 },
                 setupGeolocation: function () {
                     var that = this;
