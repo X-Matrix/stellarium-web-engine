@@ -49,6 +49,70 @@
             color: #dddddd;
             font-weight: normal;
         }
+
+        .info-card {
+            max-height: calc(100vh - 180px);
+            overflow-y: auto;
+        }
+
+        .info-card .v-card__text {
+            padding-top: 8px;
+        }
+
+        .desc-block {
+            margin-top: 12px;
+            line-height: 1.55;
+            font-size: 13px;
+            color: #e6e6e6;
+        }
+
+        .desc-block p {
+            margin: 0 0 8px 0;
+            white-space: pre-wrap;
+        }
+
+        .desc-thumb {
+            float: right;
+            margin: 0 0 8px 12px;
+            max-width: 140px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+        }
+
+        .desc-source {
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 4px;
+        }
+
+        .desc-source a {
+            color: #80cfff;
+        }
+
+        .name-list {
+            font-size: 12px;
+            color: #cccccc;
+            margin-top: 6px;
+        }
+
+        .name-list .name-row {
+            padding: 1px 0;
+        }
+
+        .name-list .native {
+            font-weight: 600;
+            color: #ffffff;
+            margin-right: 4px;
+        }
+
+        .name-list .pron {
+            color: #b3e5fc;
+        }
+
+        .name-list .trans {
+            color: #d7ccc8;
+            font-style: italic;
+        }
     </style>
 </head>
 
@@ -99,7 +163,7 @@
             <div id="stel" class="w-100 h-100" style="position: relative;">
                 <canvas id="stel-canvas" style="position:absolute;" class="w-100 h-100"></canvas>
                 <v-card v-if="stel && stel.core.selection" style="position:absolute; top: 64px; width:430px;"
-                    class="transparent">
+                    class="transparent info-card">
                     <v-card-title primary-title>
                         <h3>{{getTitle(stel.core.selection)}}</h3>
                     </v-card-title>
@@ -112,9 +176,30 @@
                                 </v-flex>
                             </template>
                         </v-layout>
+                        <div class="name-list" v-if="culturalNames.length">
+                            <div class="name-row" v-for="(n, idx) in culturalNames" :key="idx">
+                                <span class="native" v-if="n.native">{{n.native}}</span>
+                                <span class="pron" v-if="n.pronounce">[{{n.pronounce}}]</span>
+                                <span v-if="n.english">— {{n.english}}</span>
+                                <span class="trans"
+                                    v-if="n.translated && n.translated !== n.english">({{n.translated}})</span>
+                            </div>
+                        </div>
+                        <div class="desc-block" v-if="selectionDescription || selectionDescLoading">
+                            <img v-if="selectionImage" class="desc-thumb" :src="selectionImage" />
+                            <p v-if="selectionDescLoading" style="color:#aaa">Loading description…</p>
+                            <p v-else style="white-space: pre-wrap;">{{selectionDescription}}</p>
+                            <div class="desc-source" v-if="selectionLink">
+                                Source: <a :href="selectionLink" target="_blank" rel="noopener">Wikipedia</a>
+                            </div>
+                        </div>
                     </v-card-text>
                 </v-card>
             </div>
+            <v-snackbar v-model="geoSnackVisible" :timeout="6000" bottom>
+                {{ geoSnack }}
+                <v-btn text color="primary" @click="geoSnackVisible = false">OK</v-btn>
+            </v-snackbar>
         </v-app>
     </div>
 
@@ -167,7 +252,19 @@
         new Vue({
             vuetify: new Vuetify({ theme: { dark: true } }),
             el: '#app',
-            data: { drawer: false, stel: null },
+            data: {
+                drawer: false,
+                stel: null,
+                geoSnack: '',
+                geoSnackVisible: false,
+                culturalNames: [],
+                selectionDescription: '',
+                selectionDescLoading: false,
+                selectionImage: '',
+                selectionLink: '',
+                descCache: Object.create(null),
+                lastSelectionKey: null
+            },
             mounted: function () {
                 var that = this;
                 StelWebEngine({
@@ -196,15 +293,138 @@
                         stel.change(function (obj, attr) {
                             if (attr !== 'hovered') {
                                 that.stel = Object.assign(Object.create(stel), {}, stel);
+                                if (attr === 'selection') {
+                                    that.onSelectionChanged();
+                                }
                             }
                         });
 
                         stel.setFont('regular', 'static/fonts/Roboto-Regular.ttf', 1.38);
                         stel.setFont('bold', 'static/fonts/Roboto-Bold.ttf', 1.38);
+
+                        // Use the device's geolocation to align the observer.
+                        that.setupGeolocation();
                     }
                 });
             },
             methods: {
+                setupGeolocation: function () {
+                    var that = this;
+                    if (!navigator.geolocation) {
+                        that.geoSnack = 'Geolocation not supported — using default location.';
+                        that.geoSnackVisible = true;
+                        return;
+                    }
+                    navigator.geolocation.getCurrentPosition(
+                        function (pos) {
+                            var lat = pos.coords.latitude;
+                            var lng = pos.coords.longitude;
+                            var alt = pos.coords.altitude || 0;
+                            var obs = that.stel.core.observer;
+                            obs.latitude = lat * Math.PI / 180;
+                            obs.longitude = lng * Math.PI / 180;
+                            if (alt) obs.elevation = alt;
+                            that.geoSnack = 'Observer set to your location: ' +
+                                lat.toFixed(3) + '°, ' + lng.toFixed(3) + '°.';
+                            that.geoSnackVisible = true;
+                        },
+                        function (err) {
+                            that.geoSnack = 'Geolocation unavailable (' +
+                                (err && err.message ? err.message : 'denied') +
+                                ') — using default observer location.';
+                            that.geoSnackVisible = true;
+                        },
+                        { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
+                    );
+                },
+                onSelectionChanged: function () {
+                    var that = this;
+                    var sel = this.stel && this.stel.core.selection;
+                    if (!sel) {
+                        this.culturalNames = [];
+                        this.selectionDescription = '';
+                        this.selectionDescLoading = false;
+                        this.selectionImage = '';
+                        this.selectionLink = '';
+                        this.lastSelectionKey = null;
+                        return;
+                    }
+                    // Cultural names from the loaded skyculture.
+                    try {
+                        var cn = sel.culturalDesignations() || [];
+                        this.culturalNames = cn.map(function (c) {
+                            return {
+                                native: c.name_native || '',
+                                english: c.name_english || '',
+                                pronounce: c.name_pronounce || '',
+                                translated: c.name_translated || ''
+                            };
+                        }).filter(function (c) {
+                            return c.native || c.english || c.translated;
+                        });
+                    } catch (e) {
+                        this.culturalNames = [];
+                    }
+                    // Wikipedia summary keyed off the primary designation.
+                    var designations = sel.designations() || [];
+                    if (!designations.length) return;
+                    var key = designations[0];
+                    if (key === this.lastSelectionKey) return;
+                    this.lastSelectionKey = key;
+                    var query = this._wikiQueryFromDesignations(designations);
+                    this._loadDescription(query);
+                },
+                _wikiQueryFromDesignations: function (designations) {
+                    // Prefer human-readable NAME entries; fall back to first.
+                    var named = designations.filter(function (d) { return /^NAME /.test(d); })
+                        .map(function (d) { return d.replace(/^NAME /, ''); });
+                    if (named.length) return named[0].trim();
+                    var pri = designations[0];
+                    // Drop catalog prefixes that won't match Wikipedia titles.
+                    pri = pri.replace(/^(HD|HIP|SAO|HR|TYC|GAIA|GJ) /i, '');
+                    return pri.trim();
+                },
+                _loadDescription: function (title) {
+                    var that = this;
+                    if (!title) {
+                        this.selectionDescription = '';
+                        this.selectionLink = '';
+                        return;
+                    }
+                    var cached = this.descCache[title];
+                    if (cached) {
+                        this.selectionDescription = cached.extract;
+                        this.selectionImage = cached.thumbnail;
+                        this.selectionLink = cached.link;
+                        this.selectionDescLoading = false;
+                        return;
+                    }
+                    this.selectionDescription = '';
+                    this.selectionImage = '';
+                    this.selectionLink = '';
+                    this.selectionDescLoading = true;
+                    var url = 'https://en.wikipedia.org/api/rest_v1/page/summary/' +
+                        encodeURIComponent(title) + '?redirect=true';
+                    fetch(url, { headers: { 'Api-User-Agent': 'StelWebDemo/1.0' } })
+                        .then(function (r) { return r.ok ? r.json() : null; })
+                        .then(function (j) {
+                            if (that.lastSelectionKey === null) return;
+                            var entry = {
+                                extract: (j && j.extract) ? j.extract : '',
+                                thumbnail: (j && j.thumbnail && j.thumbnail.source) ? j.thumbnail.source : '',
+                                link: (j && j.content_urls && j.content_urls.desktop && j.content_urls.desktop.page) ? j.content_urls.desktop.page : ''
+                            };
+                            that.descCache[title] = entry;
+                            that.selectionDescription = entry.extract;
+                            that.selectionImage = entry.thumbnail;
+                            that.selectionLink = entry.link;
+                            that.selectionDescLoading = false;
+                        })
+                        .catch(function () {
+                            that.selectionDescription = '';
+                            that.selectionDescLoading = false;
+                        });
+                },
                 getTitle: function (obj) {
                     var name = obj.designations()[0];
                     return name.replace(/^NAME /, '');
@@ -258,7 +478,19 @@
                     var az = stel.anp(azalt[0]);
                     var alt = stel.anp(azalt[1]);
                     var vmag = obj.getInfo('vmag');
+                    var distance = obj.getInfo('distance');
                     ret.push({ key: 'Magnitude', value: vmag === undefined ? 'Unknown' : vmag.toFixed(2) });
+                    if (distance !== undefined && distance > 0) {
+                        // distance is in AU; > 1e5 AU means it's a star/DSO -> show in light-years.
+                        var val;
+                        if (distance > 1e5) {
+                            var ly = distance / 63241.077;
+                            val = ly >= 1000 ? (ly / 1000).toFixed(2) + ' kly' : ly.toFixed(2) + ' ly';
+                        } else {
+                            val = distance.toFixed(distance < 1 ? 4 : 3) + ' AU';
+                        }
+                        ret.push({ key: 'Distance', value: val });
+                    }
                     ret.push({ key: 'Ra/Dec', value: formatRA(ra) + '&nbsp;&nbsp;&nbsp;' + formatDec(dec) });
                     ret.push({ key: 'Az/Alt', value: formatAz(az) + '&nbsp;&nbsp;&nbsp;' + formatDec(alt) });
                     return ret;
